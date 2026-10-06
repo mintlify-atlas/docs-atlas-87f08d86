@@ -1,47 +1,194 @@
 ---
-title: "Quickstart"
-description: "Begin with a guide on the fastest path to a successful outcome"
+title: "Quickstart: Animate Your First Element with Motion One"
+sidebarTitle: "Quickstart"
+description: "Install Motion One, animate your first DOM element with keyframes and options, and learn how to control playback in under five minutes."
 ---
 
-Describe how someone begins using your product. What is the first thing they need to do? Are there any prerequisites?
-
-A quickstart should take someone from zero to using your product. They'll get a quick win and a sense of what they can accomplish.
-
-## Prerequisites
-
-Before you begin, you must have:
-
-- Requirement one (for example, Node.js 18+, a free account, an API key)
-- Requirement two (for example, a compatible device, a compatible browser, a compatible operating system)
-
-## Get started
+This guide walks you through installing Motion One, writing your first animation, and understanding how to control it once it's running. By the end you will have animated an element onto the page with a real fade-and-slide effect and know how to pause, resume, and await the result.
 
 <Steps>
-  <Step title="Install">
-    Describe how to install your product or sign up.
 
-    ```bash
-    npm install your-package
-    ```
-  </Step>
-  <Step title="Configure">
-    Describe any setup or configuration needed before first use.
+### Install Motion One
 
-    ```bash
-    your-cli init
-    ```
-  </Step>
-  <Step title="Run it">
-    Show the first thing a user does to see it working.
+Add the `motion` package to your project using your preferred package manager.
 
-    ```bash
-    your-cli start
-    ```
-  </Step>
-</Steps>
+<CodeGroup>
+
+```bash npm
+npm install motion
+```
+
+```bash yarn
+yarn add motion
+```
+
+```bash pnpm
+pnpm add motion
+```
+
+</CodeGroup>
+
+<Note>
+  `motion` depends only on its own `@motionone/*` scoped packages, so you won't
+  be pulling in any third-party runtime dependencies.
+</Note>
+
+### Import `animate`
+
+Import the `animate` function at the top of your script or module.
+
+```javascript
+import { animate } from 'motion'
+```
+
+`animate` is the primary function in Motion One. It accepts a CSS selector, a single `Element`, an array of `Element`s, or a `NodeList` as its first argument — so it works whether you target one element or many.
+
+### Animate your first element
+
+Call `animate` with an element target, a keyframes object, and an options object. The keyframes object maps CSS property names (and shorthand transform properties like `x`, `y`, `rotate`) to a value or array of values.
+
+```javascript
+import { animate } from 'motion'
+
+// Fade and slide a .hero element in from below
+animate(
+  '.hero',
+  { opacity: [0, 1], y: [40, 0] },
+  { duration: 0.6, easing: 'ease-out' }
+)
+```
+
+- **Target** — `'.hero'` is a CSS selector; any selector valid in `document.querySelectorAll` works.
+- **Keyframes** — `[0, 1]` means animate from `0` to `1`. A single value animates *to* that value from the element's current computed style.
+- **Options** — `duration` is in **seconds**. `easing` accepts any CSS easing string, a cubic-bezier array `[x1, y1, x2, y2]`, or a physics generator like `spring()`.
 
 <Tip>
-  Give people a way to get help. This could be a link to a support page, a chat with a customer support agent, or a forum for your product.
-
-  Example: Need help? Reach out to us at [support@yourcompany.com](mailto:support@yourcompany.com).
+  The shorthand transform properties (`x`, `y`, `z`, `rotateX`, `rotateY`,
+  `rotateZ`, `scaleX`, `scaleY`, `skewX`, `skewY`) are first-class keyframe
+  keys. Motion One composes them into a single `transform` string so you never
+  need to manage that string yourself.
 </Tip>
+
+### Control playback with `AnimationControls`
+
+`animate` returns an `AnimationControls` object. Use it to pause, resume, reverse, scrub, or await the animation.
+
+```javascript
+import { animate } from 'motion'
+
+const animation = animate(
+  '.hero',
+  { opacity: [0, 1], y: [40, 0] },
+  { duration: 0.6, easing: 'ease-out' }
+)
+
+// Pause immediately
+animation.pause()
+
+// Resume on a button click
+document.querySelector('#play-btn').addEventListener('click', () => {
+  animation.play()
+})
+
+// Await completion before running the next step
+animation.finished.then(() => {
+  console.log('Hero entrance complete')
+})
+```
+
+**`AnimationControls` API at a glance:**
+
+| Property / Method | Description |
+|---|---|
+| `play()` | Resume or start the animation |
+| `pause()` | Pause at the current position |
+| `stop()` | Stop and commit the current value to the element's inline styles |
+| `finish()` | Jump to the end and commit the final keyframe |
+| `cancel()` | Cancel and revert to the underlying styles |
+| `reverse()` | Reverse the playback direction |
+| `finished` | `Promise` that resolves when the animation ends |
+| `currentTime` | Current playhead position in seconds (get/set) |
+| `playbackRate` | Playback speed multiplier (e.g. `2` = double speed, `-1` = reverse) |
+| `duration` | Total animation duration in seconds (read-only) |
+| `playState` | `"idle"` \| `"running"` \| `"paused"` \| `"finished"` |
+
+</Steps>
+
+## Fade and slide — a complete example
+
+Here is a self-contained example you can drop into any HTML page with a `<script type="module">` tag.
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <style>
+      .hero {
+        opacity: 0;
+        font-size: 2rem;
+        padding: 2rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="hero">Welcome to Motion One 👋</div>
+
+    <script type="module">
+      import { animate } from 'https://cdn.skypack.dev/motion'
+
+      animate(
+        '.hero',
+        { opacity: [0, 1], y: [32, 0] },
+        { duration: 0.7, easing: [0.22, 1, 0.36, 1] }
+      )
+    </script>
+  </body>
+</html>
+```
+
+The cubic-bezier `[0.22, 1, 0.36, 1]` is an "expo out" curve — it starts fast and decelerates sharply, which feels snappy and modern for entrance animations.
+
+## Animating multiple elements at once
+
+Pass a selector that matches several elements and Motion One animates all of them simultaneously. Pair this with `stagger` to create a cascading effect.
+
+```javascript
+import { animate, stagger } from 'motion'
+
+// All .card elements fade and slide in, each delayed by 0.08 s
+animate(
+  '.card',
+  { opacity: [0, 1], y: [24, 0] },
+  {
+    duration: 0.5,
+    delay: stagger(0.08),
+    easing: 'ease-out',
+  }
+)
+```
+
+`stagger(duration, options?)` returns a resolver function. Motion One calls it with each element's index and the total count, producing incrementally larger `delay` values automatically. `stagger` accepts a `from` option (`"first"`, `"last"`, `"center"`, or a numeric index) to control where the cascade originates.
+
+```javascript
+import { animate, stagger } from 'motion'
+
+// Stagger outward from the center of the list
+animate(
+  'li',
+  { opacity: [0, 1], scale: [0.9, 1] },
+  {
+    duration: 0.4,
+    delay: stagger(0.06, { from: 'center' }),
+  }
+)
+```
+
+## Next steps
+
+Now that you have Motion One running, explore the rest of the API to build more complex interactions.
+
+- **Core Concepts** — understand keyframes, options, easing, and `AnimationControls` in depth
+- **`timeline()`** — sequence multi-step animations across multiple elements
+- **`spring()` & `glide()`** — physics-based easing for natural motion
+- **`inView()`** — trigger animations when elements scroll into the viewport
+- **`scroll()`** — create scroll-linked animation progress

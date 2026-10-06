@@ -1,0 +1,176 @@
+---
+title: "stagger() — Delay Resolver for Multiple Elements"
+sidebarTitle: "stagger()"
+description: "Spread animation start times across multiple elements in Motion One. Supports staggering from first, last, center, or a custom index, with optional easing."
+---
+
+`stagger()` returns an `OptionResolver<number>` — a function of the form `(i, total) => number` — that is evaluated once per element when passed as the `delay` option of `animate()` or `timeline()`. It distributes animation start times evenly across all targeted elements, with options to control the reference point and the shape of the delay curve.
+
+`stagger` is exported from the `motion` package:
+
+```typescript
+import { stagger } from "motion"
+```
+
+## Basic usage
+
+Stagger ten list items with a 0.05 second gap between each:
+
+```typescript
+import { animate, stagger } from "motion"
+
+animate(
+  ".list-item",
+  { opacity: [0, 1], transform: ["translateY(20px)", "translateY(0px)"] },
+  { delay: stagger(0.05) }
+)
+```
+
+## Examples
+
+### Stagger from center outward
+
+Elements closer to the center of the list start first; outer elements start later:
+
+```typescript
+animate(
+  ".card",
+  { opacity: [0, 1] },
+  { delay: stagger(0.08, { from: "center" }) }
+)
+```
+
+### Stagger from the last element
+
+Useful for exit animations, where you want the last element in the list to animate first:
+
+```typescript
+animate(
+  ".menu-item",
+  { opacity: [1, 0] },
+  { delay: stagger(0.06, { from: "last" }) }
+)
+```
+
+### With a start offset
+
+Begin staggering only after an initial delay of 0.3 seconds:
+
+```typescript
+animate(
+  ".dot",
+  { transform: ["scale(0)", "scale(1)"] },
+  { delay: stagger(0.1, { start: 0.3 }) }
+)
+```
+
+### With easing on the stagger delays
+
+Apply an easing function to the distribution of delays so that, for example, the gaps between elements accelerate or decelerate:
+
+```typescript
+import { animate, stagger } from "motion"
+
+animate(
+  ".item",
+  { opacity: [0, 1] },
+  {
+    delay: stagger(0.1, { easing: "ease-in" }),
+  }
+)
+```
+
+### Using stagger in timeline()
+
+```typescript
+import { timeline, stagger } from "motion"
+
+timeline([
+  [".box", { opacity: [0, 1] }, { delay: stagger(0.1) }],
+])
+```
+
+## Parameters
+
+<ParamField path="duration" type="number" default="0.1">
+  The base delay increment in seconds between each successive element. Each
+  element's delay is `duration * distance`, where `distance` is the number of
+  index positions between that element and the `from` index.
+</ParamField>
+
+<ParamField path="options" type="StaggerOptions">
+  An optional configuration object. See the individual fields below.
+</ParamField>
+
+## StaggerOptions
+
+<ParamField path="start" type="number" default="0">
+  An additional offset in seconds added to every element's computed delay. Use
+  this to push the entire stagger group forward in time without affecting the
+  relative spacing between elements.
+</ParamField>
+
+<ParamField path="from" type='"first" | "last" | "center" | number' default="0">
+  The reference index from which distances are measured.
+
+  - `"first"` — equivalent to index `0`. The first element starts immediately
+    (delay `0`); later elements are progressively delayed.
+  - `"last"` — the last element in the list starts first; earlier elements are
+    progressively delayed.
+  - `"center"` — the middle element (or midpoint of the list) starts first;
+    elements further from the center are delayed proportionally.
+  - `number` — any explicit zero-based index in the list to use as the origin
+    point.
+
+  Distances are always measured as the absolute difference between an element's
+  index and the `from` index, so symmetry is preserved around the origin.
+</ParamField>
+
+<ParamField path="easing" type="EasingFunction | Easing">
+  An optional easing applied to the *distribution* of delays. The computed
+  delay for each element is first expressed as a normalised value (0–1) within
+  the total possible delay range (`total * duration`), passed through the easing
+  function, then scaled back. This shapes the *spacing* between delays, not the
+  motion of the individual animations.
+
+  Accepts any value valid for the `easing` option of `animate()` — a keyword
+  string, a cubic bezier array, or a custom `(t: number) => number` function.
+  See [Easing Functions](/api/easing-functions) for the full list.
+</ParamField>
+
+## Return value
+
+`stagger()` returns an `OptionResolver<number>`:
+
+```typescript
+type OptionResolver<T> = (i: number, total: number) => T
+```
+
+Motion One calls this function once for each targeted element, passing the
+element's zero-based `index` (`i`) and the `total` element count. The returned
+number is the delay in seconds for that element.
+
+You can call the resolver manually if you need the delay values outside of
+`animate()`:
+
+```typescript
+const resolver = stagger(0.1, { from: "center" })
+
+const delays = Array.from({ length: 5 }, (_, i) => resolver(i, 5))
+// e.g. [0.2, 0.1, 0, 0.1, 0.2]
+```
+
+## TypeScript
+
+```typescript
+import { stagger } from "motion"
+import type { StaggerOptions } from "motion"
+
+const options: StaggerOptions = {
+  start: 0.1,
+  from: "center",
+  easing: "ease-out",
+}
+
+animate(".item", { opacity: [0, 1] }, { delay: stagger(0.08, options) })
+```

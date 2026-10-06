@@ -1,0 +1,105 @@
+{
+  "projectType": "sdk-library",
+  "projectName": "Motion One",
+  "projectDescription": "A tiny, performant animation library for the web built on the Web Animations API (WAAPI), providing DOM animations, scroll-linked animations, gestures, spring/glide easing, and timeline sequencing.",
+  "theme": "willow",
+  "primaryColor": "#ffdb2a",
+  "lightColor": "#848484",
+  "darkColor": "#0c0c0c",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "installation"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/animation-controls",
+              "concepts/keyframes",
+              "concepts/options",
+              "concepts/transforms"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/scroll-animations",
+              "guides/gestures",
+              "guides/timeline",
+              "guides/variants",
+              "guides/stagger"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "DOM API",
+            "pages": [
+              "api/animate",
+              "api/timeline",
+              "api/scroll",
+              "api/in-view",
+              "api/resize",
+              "api/style"
+            ]
+          },
+          {
+            "group": "Easing & Generators",
+            "pages": [
+              "api/spring",
+              "api/glide",
+              "api/stagger",
+              "api/easing-functions"
+            ]
+          },
+          {
+            "group": "Packages",
+            "pages": [
+              "api/packages/motion",
+              "api/packages/animation",
+              "api/packages/generators"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Tiny bundle size with Web Animations API (WAAPI) at its core",
+    "animate() for animating DOM elements with CSS properties and transforms",
+    "timeline() for sequencing complex multi-element animations",
+    "scroll() for scroll-linked and scroll-triggered animations",
+    "inView() for intersection observer-based view animations",
+    "spring() and glide() physics-based easing generators",
+    "stagger() utility for staggered multi-element animations",
+    "Variant system for declarative state-driven animations",
+    "Gesture support: hover, press, and in-view states",
+    "Full AnimationControls API: play, pause, stop, finish, reverse, playbackRate"
+  ],
+  "publicApiSurface": [
+    "animate(elements, keyframes, options) — animate DOM elements or progress functions",
+    "timeline(definition, options) — sequence animations across multiple elements",
+    "scroll(onScroll | controls, options) — scroll-linked animations",
+    "inView(elements, onStart, options) — intersection observer animations",
+    "resize(target?, onResize) — resize observer utility",
+    "style.get(element, name) / style.set(element, name, value) — read/write styles",
+    "stagger(duration, options) — staggered delay resolver",
+    "spring(options) — physics-based spring easing generator",
+    "glide(options) — momentum-based glide easing generator",
+    "cubicBezier(x1, y1, x2, y2) — custom cubic bezier easing",
+    "steps(count, direction) — stepped easing function",
+    "createMotionState(options, parent) — low-level variant state machine",
+    "AnimationControls — play, pause, stop, finish, reverse, playbackRate, currentTime, duration, finished"
+  ]
+}

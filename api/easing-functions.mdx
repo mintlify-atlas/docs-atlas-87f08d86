@@ -1,0 +1,273 @@
+---
+title: "Easing Functions: Bezier, Steps, and Keywords"
+sidebarTitle: "Easing Functions"
+description: "Every easing type accepted by Motion One: CSS keyword strings, cubic bezier arrays, step functions, custom easing functions, and physics EasingGenerators."
+---
+
+Motion One accepts a rich variety of easing types wherever an `easing` option appears — in `animate()`, `timeline()`, and `stagger()`. All forms are covered by the `Easing` type and its companions `EasingFunction` and `EasingGenerator`, which together describe every supported input from a simple CSS keyword to a full physics simulation.
+
+```typescript
+import { animate } from "motion"
+import { cubicBezier, steps } from "motion"
+import { spring, glide } from "motion"
+```
+
+---
+
+## Keyword easings
+
+The simplest form is a CSS easing keyword passed as a plain string. These map directly to the browser's native timing functions:
+
+```typescript
+animate("#box", { opacity: [0, 1] }, { easing: "ease-out" })
+```
+
+| Keyword | Description |
+|---|---|
+| `"linear"` | Constant speed from start to finish |
+| `"ease"` | Gentle acceleration then deceleration (default) |
+| `"ease-in"` | Starts slowly, accelerates into the end |
+| `"ease-out"` | Starts fast, decelerates to the end |
+| `"ease-in-out"` | Slow start, fast middle, slow end |
+| `"step-start"` | Jumps immediately to the end value and holds |
+| `"step-end"` | Holds the start value, then jumps at the very end |
+
+---
+
+## BezierDefinition
+
+A four-number tuple `[x1, y1, x2, y2]` that defines a cubic Bézier curve, identical to the CSS `cubic-bezier()` function. Use [cubic-bezier.com](https://cubic-bezier.com) to design a curve visually.
+
+```typescript
+// [x1, y1, x2, y2] — control point coordinates
+animate(
+  "#box",
+  { transform: "translateY(-20px)" },
+  { easing: [0.17, 0.67, 0.83, 0.67] }
+)
+```
+
+```typescript
+type BezierDefinition = readonly [number, number, number, number]
+```
+
+---
+
+## cubicBezier()
+
+`cubicBezier(x1, y1, x2, y2)` creates a reusable `EasingFunction` from four control-point values. Equivalent to passing a `BezierDefinition` array, but returns a callable function you can store and reuse.
+
+Exported from the `motion` package (via `@motionone/easing`):
+
+```typescript
+import { cubicBezier } from "motion"
+```
+
+### Parameters
+
+<ParamField path="x1" type="number" required>
+  The x-coordinate of the first control point. Must be in the range `[0, 1]`.
+</ParamField>
+
+<ParamField path="y1" type="number" required>
+  The y-coordinate of the first control point. Can be outside `[0, 1]` to
+  produce overshoot.
+</ParamField>
+
+<ParamField path="x2" type="number" required>
+  The x-coordinate of the second control point. Must be in the range `[0, 1]`.
+</ParamField>
+
+<ParamField path="y2" type="number" required>
+  The y-coordinate of the second control point. Can be outside `[0, 1]` to
+  produce overshoot.
+</ParamField>
+
+### Example
+
+```typescript
+import { animate, cubicBezier } from "motion"
+
+const easeOutExpo = cubicBezier(0.16, 1, 0.3, 1)
+
+animate("#box", { transform: "scale(1.5)" }, { easing: easeOutExpo })
+```
+
+If `x1 === y1` and `x2 === y2` the function short-circuits to a linear easing.
+
+---
+
+## steps()
+
+`steps(count, direction)` creates a stepped easing function that divides the animation into a fixed number of equal-sized discrete jumps — like CSS's `steps()` timing function.
+
+Exported from the `motion` package (via `@motionone/easing`):
+
+```typescript
+import { steps } from "motion"
+```
+
+### Parameters
+
+<ParamField path="steps" type="number" required>
+  The number of equidistant steps to divide the animation into.
+</ParamField>
+
+<ParamField path="direction" type='"start" | "end"' default='"end"'>
+  Controls whether each step jumps at its **start** or its **end**.
+
+  - `"end"` (default) — the value changes at the *end* of each interval, so the
+    animation holds the start value through the first step.
+  - `"start"` — the value changes at the *start* of each interval, so the
+    animation immediately jumps to the next value.
+</ParamField>
+
+### String syntax
+
+You can also pass a `steps()` string directly anywhere an `Easing` is accepted, without importing the function:
+
+```typescript
+// String form — no import required
+animate("#sprite", { backgroundPosition: "0px -400px" }, { easing: "steps(4, end)" })
+```
+
+The `Easing` type includes the template literal `` `steps(${number}, ${"start" | "end"})` `` so TypeScript will validate the string.
+
+### Function form
+
+```typescript
+import { animate, steps } from "motion"
+
+// 6-frame sprite sheet animation
+animate(
+  "#sprite",
+  { backgroundPosition: ["0px 0px", "0px -600px"] },
+  { easing: steps(6, "end"), duration: 0.5 }
+)
+```
+
+---
+
+## Custom EasingFunction
+
+Any function with the signature `(t: number) => number` is a valid easing. `t` is the animation's normalised progress (0 = start, 1 = end) and the return value is the eased progress, also typically in `[0, 1]` (though values outside this range produce overshoot/undershoot).
+
+```typescript
+type EasingFunction = (t: number) => number
+```
+
+### Example — bounce easing
+
+```typescript
+import { animate } from "motion"
+
+function easeOutBounce(t: number): number {
+  const n1 = 7.5625
+  const d1 = 2.75
+  if (t < 1 / d1) {
+    return n1 * t * t
+  } else if (t < 2 / d1) {
+    return n1 * (t -= 1.5 / d1) * t + 0.75
+  } else if (t < 2.5 / d1) {
+    return n1 * (t -= 2.25 / d1) * t + 0.9375
+  } else {
+    return n1 * (t -= 2.625 / d1) * t + 0.984375
+  }
+}
+
+animate("#ball", { transform: "translateY(200px)" }, { easing: easeOutBounce })
+```
+
+---
+
+## EasingGenerator
+
+`EasingGenerator` is the interface implemented by [`spring()`](/api/spring) and [`glide()`](/api/glide). Unlike a plain easing function, a generator computes its own keyframes and duration through a physics simulation. When you pass an `EasingGenerator` as `easing`, any explicit `duration` on the same animation is ignored.
+
+```typescript
+type EasingGenerator = {
+  createAnimation: (
+    keyframes: UnresolvedValueKeyframe[],
+    shouldGenerate?: boolean,
+    readInitialKeyframe?: () => number | string,
+    name?: string,
+    value?: MotionValue
+  ) => CustomAnimationSettings
+}
+```
+
+```typescript
+import { animate, spring, glide } from "motion"
+
+// spring — oscillating physics
+animate("#box", { transform: "translateX(100px)" }, { easing: spring() })
+
+// glide — momentum friction decay
+animate("#box", { transform: "translateY(200px)" }, { easing: glide({ velocity: 600 }) })
+```
+
+See [spring()](/api/spring) and [glide()](/api/glide) for full option references.
+
+---
+
+## Per-keyframe easing (easing arrays)
+
+When an animation has more than two keyframes, you can supply a different easing for each *segment* between keyframes. Pass an array of easings whose length is `keyframes.length - 1`.
+
+```typescript
+animate(
+  "#box",
+  { transform: ["translateX(0px)", "translateX(100px)", "translateX(0px)"] },
+  {
+    easing: ["ease-in", "ease-out"],
+    duration: 1,
+  }
+)
+```
+
+Each element in the array can be any valid easing — a keyword string, `BezierDefinition`, `EasingFunction`, or even an `EasingGenerator`:
+
+```typescript
+import { animate, spring, cubicBezier } from "motion"
+
+animate(
+  "#box",
+  { opacity: [0, 0.5, 1] },
+  {
+    easing: [cubicBezier(0.4, 0, 0.6, 1), spring({ stiffness: 200, damping: 20 })],
+    duration: 0.6,
+  }
+)
+```
+
+---
+
+## TypeScript reference
+
+```typescript
+// All keyword strings
+type Easing =
+  | "linear"
+  | "ease"
+  | "ease-in"
+  | "ease-out"
+  | "ease-in-out"
+  | "step-start"
+  | "step-end"
+  | `steps(${number}, ${"start" | "end"})`
+  | BezierDefinition
+
+// Four-number bezier tuple
+type BezierDefinition = readonly [number, number, number, number]
+
+// Custom function easing
+type EasingFunction = (t: number) => number
+
+// Physics-based generator (spring, glide)
+type EasingGenerator = {
+  createAnimation: (keyframes: UnresolvedValueKeyframe[], ...) => CustomAnimationSettings
+}
+
+// The full easing option on animate() / timeline()
+easing?: EasingGenerator | Easing | Easing[] | EasingFunction
+```

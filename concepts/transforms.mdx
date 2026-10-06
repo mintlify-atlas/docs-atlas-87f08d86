@@ -1,0 +1,232 @@
+---
+title: "CSS Transforms: Shorthand and Individual Axes"
+sidebarTitle: "Transforms"
+description: "Animate x, y, rotate, scale, and skew as independent axes in Motion One. Covers transform shorthands, unit defaults, and CSS custom property animation."
+---
+
+Motion One makes it easy to animate CSS transforms using friendly shorthand property names like `x`, `y`, `rotate`, and `scale`. Each transform axis is animated independently — there is no need to juggle a composite `transform` string — and Motion One assembles the final `transform` value on the element automatically.
+
+## How individual transforms work
+
+Standard CSS requires all transforms to be combined into a single `transform` string:
+
+```css
+/* Hard to animate axes independently */
+transform: translateX(100px) rotate(45deg) scale(1.2);
+```
+
+Motion One avoids this problem by mapping each shorthand to a CSS custom property (e.g. `--motion-translateX`) and building a `transform` string that references those variables:
+
+```css
+/* Motion One generates this on the element */
+transform: translateX(var(--motion-translateX)) rotate(var(--motion-rotate)) scale(var(--motion-scale));
+```
+
+This means each axis can be animated with its own independent keyframes, easing, and duration — without the axes interfering with each other.
+
+## Transform shorthands
+
+The following shorthand names are accepted anywhere a CSS property name would be used in `animate()`:
+
+| Shorthand | Underlying CSS function | Default unit for plain numbers |
+|-----------|-------------------------|-------------------------------|
+| `x`       | `translateX`            | `px`                          |
+| `y`       | `translateY`            | `px`                          |
+| `z`       | `translateZ`            | `px`                          |
+| `translate`  | `translate`          | `px`                          |
+| `translateX` | `translateX`         | `px`                          |
+| `translateY` | `translateY`         | `px`                          |
+| `translateZ` | `translateZ`         | `px`                          |
+| `rotate`  | `rotate`                | `deg`                         |
+| `rotateX` | `rotateX`               | `deg`                         |
+| `rotateY` | `rotateY`               | `deg`                         |
+| `rotateZ` | `rotateZ`               | `deg`                         |
+| `scale`   | `scale`                 | *(unitless)*                  |
+| `scaleX`  | `scaleX`                | *(unitless)*                  |
+| `scaleY`  | `scaleY`                | *(unitless)*                  |
+| `skew`    | `skew`                  | `deg`                         |
+| `skewX`   | `skewX`                 | `deg`                         |
+| `skewY`   | `skewY`                 | `deg`                         |
+
+### Transform aliases
+
+The shorthands `x`, `y`, and `z` are **aliases**:
+
+```typescript
+// From source: packages/dom/src/animate/utils/transforms.ts
+export const transformAlias = {
+  x: "translateX",
+  y: "translateY",
+  z: "translateZ",
+}
+```
+
+When you write `x: 100`, Motion One internally maps the key to `translateX` before creating the CSS custom property `--motion-translateX`.
+
+## Unit handling
+
+When you pass a **plain number** for a transform property, Motion One converts it to the appropriate default unit automatically.
+
+```javascript
+import { animate } from "motion"
+
+// Numbers → units applied automatically
+animate("#box", {
+  x: 100,       // → translateX(100px)
+  y: -50,       // → translateY(-50px)
+  rotate: 45,   // → rotate(45deg)
+  scale: 1.2,   // → scale(1.2)   (unitless)
+  skewX: 15,    // → skewX(15deg)
+})
+```
+
+You can always pass a **string** to use a different unit:
+
+```javascript
+animate("#box", {
+  x: "10vw",         // viewport width
+  y: "2rem",         // relative to root font size
+  rotate: "1.5rad",  // radians
+})
+```
+
+## Animating transforms independently
+
+Because each transform axis is stored in its own CSS custom property, you can run independent animations on different axes with different durations and easings simultaneously:
+
+```javascript
+import { animate } from "motion"
+
+// x slides in over 0.4s with a spring
+animate("#card", { x: [40, 0] }, {
+  duration: 0.4,
+  easing: "ease-out",
+})
+
+// opacity fades in over 0.6s with a linear curve
+animate("#card", { opacity: [0, 1] }, {
+  duration: 0.6,
+  easing: "linear",
+})
+
+// rotate has its own separate timing
+animate("#card", { rotate: [5, 0] }, {
+  duration: 0.5,
+  easing: [0.34, 1.56, 0.64, 1],
+})
+```
+
+You can also control multiple transforms in a single call using [per-property options](/concepts/options#per-property-options):
+
+```javascript
+animate(
+  "#card",
+  { x: 100, rotate: 15 },
+  {
+    duration: 0.5,
+    x: { easing: "ease-out" },
+    rotate: { easing: [0.34, 1.56, 0.64, 1], duration: 0.3 },
+  }
+)
+```
+
+## Common transform patterns
+
+### Slide in from the side
+
+```javascript
+animate(".panel", { x: [-300, 0], opacity: [0, 1] }, { duration: 0.5, easing: "ease-out" })
+```
+
+### Scale up on hover
+
+```javascript
+element.addEventListener("mouseenter", () => {
+  animate(element, { scale: 1.08 }, { duration: 0.2, easing: "ease-out" })
+})
+element.addEventListener("mouseleave", () => {
+  animate(element, { scale: 1 }, { duration: 0.2, easing: "ease-in" })
+})
+```
+
+### Continuous rotation
+
+```javascript
+import { animate } from "motion"
+
+animate("#spinner", { rotate: 360 }, {
+  duration: 1.2,
+  repeat: Infinity,
+  easing: "linear",
+})
+```
+
+### Flip card (rotateY)
+
+```javascript
+animate("#card", { rotateY: [0, 180] }, {
+  duration: 0.6,
+  easing: "ease-in-out",
+})
+```
+
+### Bounce with scale
+
+```javascript
+import { animate, spring } from "motion"
+
+animate("#btn", { scale: [1, 0.92, 1] }, {
+  duration: 0.4,
+  easing: spring({ stiffness: 300, damping: 12 }),
+})
+```
+
+### 3D perspective tilt
+
+```javascript
+animate("#card", { rotateX: 10, rotateY: -15 }, {
+  duration: 0.3,
+  easing: "ease-out",
+})
+```
+
+## CSS variable animation
+
+CSS custom properties (variables) can also be animated directly. This is useful for driving complex CSS expressions — like gradient positions, filter parameters, or design tokens — without animating individual properties.
+
+```javascript
+import { animate } from "motion"
+
+animate("#hero", {
+  "--gradient-angle": ["0deg", "360deg"],
+}, {
+  duration: 4,
+  repeat: Infinity,
+  easing: "linear",
+})
+```
+
+```css
+#hero {
+  background: conic-gradient(
+    from var(--gradient-angle, 0deg),
+    #ff6b6b,
+    #ffd93d,
+    #6bcb77,
+    #4d96ff,
+    #ff6b6b
+  );
+}
+```
+
+<Note>
+  For CSS custom properties to animate natively via WAAPI, the browser must support `CSS.registerProperty` (available in all modern browsers except Firefox before v128). In unsupported browsers, Motion One falls back to setting the value directly without interpolation.
+</Note>
+
+<Tip>
+  Use CSS variables to animate values that appear inside `calc()`, `clamp()`, or other CSS functions — areas where `transform` shorthands won't reach.
+</Tip>
+
+## Transform order
+
+When multiple transform shorthands are animated simultaneously, Motion One applies them in a fixed order to keep behaviour consistent: `translate` family first, then `scale`, then `rotate`, then `skew`. This mirrors the natural layering order used in CSS `transform` and avoids unexpected axis interactions.

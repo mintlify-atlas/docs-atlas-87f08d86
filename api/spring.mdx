@@ -1,0 +1,169 @@
+---
+title: "spring() — Physics-Based Spring Easing"
+sidebarTitle: "spring()"
+description: "A physics-based spring animation generator for Motion One. Produces natural, momentum-driven motion and sets its own duration from physical parameters."
+---
+
+`spring()` is an **EasingGenerator** — a special kind of easing that, instead of mapping a fixed-duration progress value, runs a physical spring simulation to generate its own keyframes and duration. This means that when you pass `spring()` as the `easing` option, any `duration` you set on the same animation is ignored; the spring plays for exactly as long as its physics dictate.
+
+`spring` is exported from the `motion` package:
+
+```typescript
+import { spring } from "motion"
+```
+
+## Basic usage
+
+```typescript
+import { animate, spring } from "motion"
+
+animate(
+  "#box",
+  { transform: "translateX(100px)" },
+  { easing: spring() }
+)
+```
+
+## Examples
+
+### Stiff spring (snappy, minimal oscillation)
+
+```typescript
+animate(
+  "#box",
+  { transform: "scale(1.2)" },
+  {
+    easing: spring({
+      stiffness: 300,
+      damping: 30,
+    }),
+  }
+)
+```
+
+### Soft spring (slow, bouncy)
+
+```typescript
+animate(
+  "#box",
+  { transform: "translateY(-40px)" },
+  {
+    easing: spring({
+      stiffness: 60,
+      damping: 8,
+      mass: 2,
+    }),
+  }
+)
+```
+
+### Spring with initial velocity
+
+Pass an initial `velocity` (in units/second) to continue existing motion seamlessly into the spring:
+
+```typescript
+animate(
+  "#box",
+  { transform: "translateX(200px)" },
+  {
+    easing: spring({
+      stiffness: 200,
+      damping: 20,
+      velocity: 500,
+    }),
+  }
+)
+```
+
+<Note>
+  `spring()` is an **EasingGenerator**, not a plain easing function. It returns
+  an object with a `createAnimation` method that Motion One calls internally to
+  compute keyframes and a physics-derived duration. Any `duration` set alongside
+  a spring easing is therefore ignored — the spring decides how long it runs
+  based on `stiffness`, `damping`, `mass`, and the `restSpeed`/`restDistance`
+  thresholds.
+</Note>
+
+## Options
+
+<ParamField path="stiffness" type="number" default="100">
+  The stiffness of the spring. Higher values create a faster, snappier
+  animation; lower values create a slower, more elastic feel. Acts as the spring
+  constant `k` in the underlying differential equation.
+</ParamField>
+
+<ParamField path="damping" type="number" default="10">
+  The amount of resistance applied to the spring's motion. Higher values prevent
+  oscillation and bring the spring to rest faster. When `damping` is high enough
+  relative to `stiffness` and `mass`, the spring becomes **critically damped**
+  and does not overshoot. Lower values produce a bouncy, underdamped spring.
+
+  The damping ratio is calculated as:
+  `dampingRatio = damping / (2 * sqrt(stiffness * mass))`
+
+  A ratio ≥ 1 means no bouncing; a ratio &lt; 1 means oscillation.
+</ParamField>
+
+<ParamField path="mass" type="number" default="1">
+  The virtual mass attached to the spring. Increasing mass slows down the
+  animation and increases the settling time without necessarily increasing
+  bounciness. Useful for creating a "heavier" feel.
+</ParamField>
+
+<ParamField path="velocity" type="number" default="0">
+  The initial velocity of the spring in units per second. Useful when chaining
+  from a gesture or a previous animation — pass the current velocity to ensure
+  motion feels continuous rather than starting from rest.
+</ParamField>
+
+<ParamField path="from" type="number" default="0">
+  The value the spring starts from. When used as an easing in `animate()`, this
+  is typically set automatically from the animation's first keyframe.
+</ParamField>
+
+<ParamField path="to" type="number" default="1">
+  The target value the spring moves toward. When used as an easing in
+  `animate()`, this is typically set automatically from the animation's last
+  keyframe.
+</ParamField>
+
+<ParamField path="restSpeed" type="number">
+  The velocity threshold (in units/second) below which the spring is considered
+  at rest. The spring ends when **both** `restSpeed` and `restDistance` are
+  satisfied simultaneously.
+
+  Defaults to `0.01` when the animation range (`|to - from|`) is less than 5
+  units (granular scale), and `2` otherwise.
+</ParamField>
+
+<ParamField path="restDistance" type="number">
+  The displacement threshold (in units) below which the spring is considered at
+  rest. The spring ends when **both** `restSpeed` and `restDistance` are
+  satisfied simultaneously.
+
+  Defaults to `0.005` for granular-scale animations (range &lt; 5 units) and
+  `0.5` otherwise.
+</ParamField>
+
+## How spring duration works
+
+Unlike standard easing functions, `spring()` does not use a fixed duration. Instead, Motion One runs the spring simulation forward in time until both `restSpeed` and `restDistance` thresholds are satisfied, and that elapsed time becomes the animation's duration. This means:
+
+- The `duration` option on `animate()` or `timeline()` is **ignored** when `spring()` is the easing.
+- Adjusting `stiffness`, `damping`, and `mass` implicitly controls how long the animation runs.
+- The spring will never end early or late — it finishes precisely when it has physically settled.
+
+## TypeScript
+
+```typescript
+import { spring } from "motion"
+import type { SpringOptions } from "motion"
+
+const options: SpringOptions = {
+  stiffness: 200,
+  damping: 25,
+  mass: 1,
+}
+
+animate("#box", { opacity: 1 }, { easing: spring(options) })
+```

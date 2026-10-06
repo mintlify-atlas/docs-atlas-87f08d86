@@ -1,0 +1,276 @@
+---
+title: "animate() — Animate DOM Elements and CSS Properties"
+sidebarTitle: "animate()"
+description: "Animate CSS properties, transforms, and CSS variables on one or more DOM elements with full playback control via AnimationControls."
+---
+
+The `animate()` function is the core of Motion One. It drives hardware-accelerated CSS animations using the Web Animations API, with an automatic polyfill for transform values and a clean, promise-based controls object. You can target a single element, a CSS selector, an array of elements, or a plain progress function — all returning the same `AnimationControls` interface.
+
+## Signatures
+
+```typescript
+// Animate DOM elements
+function animate(
+  elements: ElementOrSelector,
+  keyframes: MotionKeyframesDefinition,
+  options?: AnimationOptionsWithOverrides
+): AnimationControls
+
+// Drive a progress function
+function animate(
+  target: ProgressFunction,
+  options?: AnimationOptionsWithOverrides
+): AnimationControls
+```
+
+## Parameters
+
+<ParamField path="elements" type="ElementOrSelector" required>
+  The element(s) to animate. Accepts any of the following:
+
+  ```typescript
+  type ElementOrSelector =
+    | Element
+    | Element[]
+    | NodeListOf<Element>
+    | string // CSS selector
+  ```
+
+  A CSS selector string is resolved against the document at call-time. An error is thrown when no matching elements are found.
+</ParamField>
+
+<ParamField path="keyframes" type="MotionKeyframesDefinition" required>
+  An object whose keys are CSS property names (or CSS variable names) and whose values are a single keyframe value or an array of keyframe values.
+
+  ```typescript
+  type MotionKeyframesDefinition = {
+    // Any CSS property, e.g. opacity, backgroundColor
+    [K in keyof CSSStyleDeclarationWithTransform]?: ValueKeyframesDefinition
+  } & {
+    // CSS custom properties
+    [key: `--${string}`]: ValueKeyframesDefinition
+  }
+
+  type ValueKeyframesDefinition =
+    | ValueKeyframe            // single value — animates from current → value
+    | ValueKeyframe[]          // explicit from → to (or multi-step)
+    | UnresolvedValueKeyframe[] // may include null wildcards
+  ```
+
+  Motion One supports all standard CSS properties plus these **transform shorthands**: `x`, `y`, `z`, `rotateX`, `rotateY`, `rotateZ`, `scaleX`, `scaleY`, `scaleZ`, `skewX`, `skewY`.
+</ParamField>
+
+<ParamField path="options" type="AnimationOptionsWithOverrides" default="{}">
+  Global animation options applied to every property, optionally overridden per-property by nesting an options object under the property key.
+
+  See the [Options](#options) section below for all supported fields.
+</ParamField>
+
+---
+
+## Options
+
+The `options` argument accepts all fields from `AnimationOptions` (which combines `KeyframeOptions`, `PlaybackOptions`, and a few extras), plus per-property overrides.
+
+### KeyframeOptions
+
+<ParamField path="duration" type="number" default="0.3">
+  Duration of the animation in seconds.
+</ParamField>
+
+<ParamField path="easing" type="EasingGenerator | Easing | Easing[] | EasingFunction" default='"ease"'>
+  Easing for the whole animation, or a list of easings between individual keyframes.
+
+  Named easings: `"linear"`, `"ease"`, `"ease-in"`, `"ease-out"`, `"ease-in-out"`, `"step-start"`, `"step-end"`.
+
+  Cubic bezier: `[x1, y1, x2, y2]` — e.g. `[0.17, 0.67, 0.83, 0.67]`.
+
+  Stepped: `"steps(2, start)"` / `"steps(4, end)"`.
+
+  Custom JavaScript function `(t: number) => number`.
+</ParamField>
+
+<ParamField path="offset" type="number[]" default="[0, 1]">
+  Explicit keyframe offsets as numbers between `0` and `1`. The array length must match the number of keyframe values.
+</ParamField>
+
+### PlaybackOptions
+
+<ParamField path="delay" type="number | OptionResolver<number>" default="0">
+  Delay before the animation starts, in seconds. When animating multiple elements you may pass a stagger resolver `(i, total) => number`.
+</ParamField>
+
+<ParamField path="endDelay" type="number" default="0">
+  Extra time to hold the final keyframe before the animation ends, in seconds.
+</ParamField>
+
+<ParamField path="repeat" type="number" default="0">
+  Number of additional times the animation repeats after the first play. Set to `Infinity` for a looping animation.
+</ParamField>
+
+<ParamField path="direction" type="PlaybackDirection" default='"normal"'>
+  Playback direction. One of `"normal"`, `"reverse"`, `"alternate"`, `"alternate-reverse"`.
+</ParamField>
+
+<ParamField path="autoplay" type="boolean" default="true">
+  Whether the animation starts automatically. Set to `false` to create a paused animation you control manually.
+</ParamField>
+
+<ParamField path="persist" type="boolean" default="false">
+  When `true`, the fill mode is kept after the animation finishes and `cancel()` is not called automatically.
+</ParamField>
+
+### Extra Options
+
+<ParamField path="allowWebkitAcceleration" type="boolean" default="false">
+  Motion One disables GPU acceleration on WebKit by default to work around timing bugs. Enable this only after thorough testing in Safari and iOS Chrome.
+</ParamField>
+
+<ParamField path="record" type="boolean" default="true">
+  Set to `false` to opt this animation out of Motion DevTools recording.
+</ParamField>
+
+### Per-Property Overrides
+
+Any option above can be scoped to a single property by nesting it under that property's key:
+
+```typescript
+animate(element, { x: [0, 100], opacity: [0, 1] }, {
+  duration: 1,
+  opacity: { duration: 0.4, easing: "ease-in" },
+})
+```
+
+---
+
+## Return Value
+
+<ResponseField name="AnimationControls" type="object">
+  An object that lets you control and inspect the animation.
+
+  <ResponseField name="play" type="() => void">
+    Resume a paused animation.
+  </ResponseField>
+
+  <ResponseField name="pause" type="() => void">
+    Pause the animation at its current time.
+  </ResponseField>
+
+  <ResponseField name="stop" type="() => void">
+    Stop the animation and commit the current value to the element's inline styles.
+  </ResponseField>
+
+  <ResponseField name="finish" type="() => void">
+    Immediately jump to the end of the animation and commit the final keyframe.
+  </ResponseField>
+
+  <ResponseField name="cancel" type="() => void">
+    Cancel the animation and revert the element to its pre-animation styles.
+  </ResponseField>
+
+  <ResponseField name="reverse" type="() => void">
+    Reverse the playback direction.
+  </ResponseField>
+
+  <ResponseField name="commitStyles" type="() => void">
+    Write the current animated values to the element's inline styles.
+  </ResponseField>
+
+  <ResponseField name="finished" type="Promise<any>">
+    A `Promise` that resolves when the animation completes.
+  </ResponseField>
+
+  <ResponseField name="playState" type='"idle" | "running" | "paused" | "finished"'>
+    The current play state of the animation.
+  </ResponseField>
+
+  <ResponseField name="playbackRate" type="number">
+    Get or set the playback rate. `1` = normal, `2` = double speed, `-1` = reversed.
+  </ResponseField>
+
+  <ResponseField name="duration" type="number">
+    The total duration of the animation in seconds (read-only).
+  </ResponseField>
+
+  <ResponseField name="currentTime" type="number | null">
+    Get or set the current playback position in seconds. Useful for scrubbing.
+  </ResponseField>
+
+  <ResponseField name="startTime" type="number | null">
+    The time (in milliseconds, relative to the timeline) at which the animation started.
+  </ResponseField>
+</ResponseField>
+
+---
+
+## Examples
+
+<CodeGroup>
+
+```typescript Single element
+import { animate } from "motion"
+
+animate("#box", { opacity: [0, 1], y: [-20, 0] }, { duration: 0.5 })
+```
+
+```typescript Multiple elements
+import { animate } from "motion"
+
+// Animate every .card with a staggered delay
+animate(".card", { opacity: [0, 1], y: [20, 0] }, {
+  duration: 0.4,
+  delay: (i) => i * 0.1,
+  easing: "ease-out",
+})
+```
+
+```typescript Playback control
+import { animate } from "motion"
+
+const animation = animate(
+  document.querySelector("#hero"),
+  { scale: [1, 1.05] },
+  { duration: 1, repeat: Infinity, direction: "alternate" }
+)
+
+// Pause after 2 seconds
+setTimeout(() => animation.pause(), 2000)
+
+// Await completion
+animation.finished.then(() => console.log("done"))
+```
+
+```typescript Progress function
+import { animate } from "motion"
+
+// Drive a raw progress value from 0 → 1
+animate((progress) => {
+  document.querySelector("#bar").style.width = `${progress * 100}%`
+}, { duration: 2, easing: "ease-in-out" })
+```
+
+```typescript Per-property options
+import { animate } from "motion"
+
+animate(
+  "#card",
+  { x: [0, 200], opacity: [0, 1] },
+  {
+    duration: 0.8,
+    // Override just the opacity timing
+    opacity: { duration: 0.3, easing: "ease-in" },
+  }
+)
+```
+
+```typescript CSS variables
+import { animate } from "motion"
+
+animate(
+  document.documentElement,
+  { "--primary-hue": [220, 280] },
+  { duration: 1 }
+)
+```
+
+</CodeGroup>

@@ -1,0 +1,282 @@
+---
+title: "Animation Options: Duration, Easing, and More"
+sidebarTitle: "Options"
+description: "Full reference for Motion One's AnimationOptions: duration, easing, delay, endDelay, repeat, direction, autoplay, offset, and per-property overrides."
+---
+
+The third argument to `animate()` is an `AnimationOptions` object. It controls how the animation plays: how long it lasts, which easing curve is applied, whether it loops, and more. All fields are optional — sensible defaults are applied when you omit them.
+
+```javascript
+import { animate } from "motion"
+
+animate("#box", { x: 100 }, {
+  duration: 0.6,
+  easing: "ease-out",
+  delay: 0.1,
+})
+```
+
+## All options
+
+### `duration`
+
+<ParamField body="duration" type="number" default="0.3">
+  The length of the animation in **seconds**.
+</ParamField>
+
+```javascript
+// 1.5-second animation
+animate("#box", { opacity: 0 }, { duration: 1.5 })
+```
+
+<Note>
+  When using physics-based easings (`spring()` or `glide()`), `duration` is computed dynamically from the solver. Any explicit `duration` you pass will be overridden by the generator.
+</Note>
+
+---
+
+### `easing`
+
+<ParamField body="easing" type="Easing | Easing[] | EasingGenerator | EasingFunction" default='"ease"'>
+  The easing curve applied to the animation — or a list of easings applied between consecutive keyframes.
+</ParamField>
+
+Motion One accepts several easing forms:
+
+#### Named easings
+
+```javascript
+animate("#box", { x: 100 }, { easing: "linear" })
+animate("#box", { x: 100 }, { easing: "ease" })
+animate("#box", { x: 100 }, { easing: "ease-in" })
+animate("#box", { x: 100 }, { easing: "ease-out" })
+animate("#box", { x: 100 }, { easing: "ease-in-out" })
+```
+
+#### Cubic bézier
+
+Pass a four-number array `[x1, y1, x2, y2]` to define a custom cubic bézier curve. Use [cubic-bezier.com](https://cubic-bezier.com/) to preview curves.
+
+```javascript
+animate("#box", { y: -80 }, { easing: [0.17, 0.67, 0.83, 0.67] })
+```
+
+#### Stepped easing
+
+```javascript
+animate("#box", { opacity: [0, 1] }, { easing: "steps(4, end)" })
+animate("#box", { opacity: [0, 1] }, { easing: "step-start" })
+animate("#box", { opacity: [0, 1] }, { easing: "step-end" })
+```
+
+#### Physics-based generators: `spring` and `glide`
+
+`spring` and `glide` are `EasingGenerator` functions exported from `motion`. They dynamically compute a keyframe sequence and duration to produce natural, physics-based motion.
+
+```javascript
+import { animate, spring, glide } from "motion"
+
+// Spring with default stiffness/damping/mass
+animate("#box", { x: 200 }, { easing: spring() })
+
+// Customised spring
+animate("#box", { x: 200 }, {
+  easing: spring({ stiffness: 200, damping: 15, mass: 1 }),
+})
+
+// Glide (momentum/deceleration)
+animate("#box", { x: 200 }, { easing: glide({ velocity: 800 }) })
+```
+
+#### Custom easing function
+
+Pass any `(t: number) => number` function where `t` ranges from `0` to `1`:
+
+```javascript
+// Custom bounce easing
+const easeOutBounce = (t) => {
+  const n1 = 7.5625, d1 = 2.75
+  if (t < 1 / d1) return n1 * t * t
+  if (t < 2 / d1) return n1 * (t -= 1.5 / d1) * t + 0.75
+  if (t < 2.5 / d1) return n1 * (t -= 2.25 / d1) * t + 0.9375
+  return n1 * (t -= 2.625 / d1) * t + 0.984375
+}
+
+animate("#box", { y: [0, -100] }, { easing: easeOutBounce })
+```
+
+#### Per-keyframe easing list
+
+Pass an array of easing values to apply a different curve between each pair of consecutive keyframes:
+
+```javascript
+// Ease in between frame 0→1, ease out between frame 1→2
+animate("#box", { x: [0, 100, 0] }, {
+  easing: ["ease-in", "ease-out"],
+})
+```
+
+---
+
+### `delay`
+
+<ParamField body="delay" type="number | OptionResolver<number>" default="0">
+  Time in **seconds** to wait before the animation begins. Can also be an `OptionResolver` function `(i, total) => number` for per-element staggering when animating multiple elements.
+</ParamField>
+
+```javascript
+// Start 200ms (0.2s) after the call
+animate("#box", { opacity: 1 }, { delay: 0.2 })
+
+// Stagger each element by 0.1s apart (using stagger helper)
+import { animate, stagger } from "motion"
+animate(".card", { y: [20, 0], opacity: [0, 1] }, { delay: stagger(0.1) })
+```
+
+---
+
+### `endDelay`
+
+<ParamField body="endDelay" type="number" default="0">
+  Time in **seconds** to wait at the end of the animation (after the final keyframe) before the animation is considered finished.
+</ParamField>
+
+```javascript
+// Hold the final state for 0.5s before the animation resolves
+animate("#box", { opacity: 0 }, { duration: 0.4, endDelay: 0.5 })
+```
+
+---
+
+### `repeat`
+
+<ParamField body="repeat" type="number" default="0">
+  Number of **additional** times the animation plays after the initial run. Set to `Infinity` for a looping animation. The total play count is `repeat + 1`.
+</ParamField>
+
+```javascript
+// Plays 3 times total
+animate("#box", { rotate: 360 }, { repeat: 2 })
+
+// Loops forever
+animate("#spinner", { rotate: 360 }, { repeat: Infinity, easing: "linear" })
+```
+
+---
+
+### `direction`
+
+<ParamField body="direction" type='"normal" | "reverse" | "alternate" | "alternate-reverse"' default='"normal"'>
+  The direction of playback. Mirrors the CSS `animation-direction` property.
+
+  - `"normal"` — plays from start to end each iteration.
+  - `"reverse"` — plays from end to start each iteration.
+  - `"alternate"` — odd iterations play forward, even iterations play backward.
+  - `"alternate-reverse"` — odd iterations play backward, even iterations play forward.
+</ParamField>
+
+```javascript
+// Ping-pong back and forth
+animate("#box", { x: 100 }, { repeat: Infinity, direction: "alternate" })
+
+// Play backwards
+animate("#box", { x: [0, 100] }, { direction: "reverse" })
+```
+
+---
+
+### `autoplay`
+
+<ParamField body="autoplay" type="boolean" default="true">
+  Whether the animation should start playing immediately when created. Set to `false` to create an animation in a paused state and trigger it manually with `animation.play()`.
+</ParamField>
+
+```javascript
+const animation = animate("#box", { x: 100 }, { autoplay: false })
+
+// Start the animation on a user interaction
+document.querySelector("#btn").addEventListener("click", () => {
+  animation.play()
+})
+```
+
+---
+
+### `allowWebkitAcceleration`
+
+<ParamField body="allowWebkitAcceleration" type="boolean" default="false">
+  Motion One disables GPU-accelerated animations on WebKit-based browsers (Safari, iOS Chrome) by default. This is because WebKit has several known timing bugs — accelerated animations can desync from main-thread animations and exhibit large startup delays in WKWebView.
+
+  Set to `true` only if you have tested your animations thoroughly in both Safari desktop and iOS Chrome and need the acceleration to overcome heavy main-thread load.
+</ParamField>
+
+```javascript
+animate("#box", { x: 200 }, { allowWebkitAcceleration: true })
+```
+
+<Warning>
+  Enable `allowWebkitAcceleration` with caution. Accelerated animations in WebKit can stutter, skip, or fall out of sync with other animations on the page.
+</Warning>
+
+---
+
+### `offset`
+
+<ParamField body="offset" type="number[]" default="[0, 1]">
+  Explicit timing positions for each keyframe, as numbers between `0` and `1`. The number of entries must match the number of keyframes provided for each property.
+</ParamField>
+
+See [Keyframes — Non-uniform timing](/concepts/keyframes#non-uniform-timing-with-offset) for full examples.
+
+```javascript
+// Spend 70% of the duration on the upswing, 30% on the return
+animate("#box", { y: [0, -120, 0] }, {
+  duration: 1,
+  offset: [0, 0.7, 1],
+})
+```
+
+---
+
+## Per-property options
+
+Any `AnimationOptions` key can be specified per animated property by adding a nested object under the property name alongside the keyframes. This allows different durations, easings, and delays per value within a single `animate()` call.
+
+```javascript
+import { animate } from "motion"
+
+animate(
+  "#box",
+  {
+    x: 100,
+    opacity: 0,
+  },
+  {
+    duration: 0.6,
+    easing: "ease-out",
+    // Override easing and duration for opacity only
+    opacity: {
+      duration: 1.2,
+      easing: "linear",
+    },
+  }
+)
+```
+
+```javascript
+// Per-property delay creates a staggered feel within one call
+animate(
+  "#card",
+  { x: 40, y: 20, scale: 1.05 },
+  {
+    duration: 0.4,
+    x: { delay: 0 },
+    y: { delay: 0.05 },
+    scale: { delay: 0.1 },
+  }
+)
+```
+
+<Note>
+  Per-property overrides merge with the top-level options — you only need to specify the keys you want to change. All other options fall back to the top-level value.
+</Note>

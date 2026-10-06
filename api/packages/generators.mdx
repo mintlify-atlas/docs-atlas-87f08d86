@@ -1,0 +1,371 @@
+---
+title: "@motionone/generators: Spring and Glide Physics"
+sidebarTitle: "@motionone/generators"
+description: "The @motionone/generators package provides spring and glide physics engines as pure AnimationGenerator functions, plus utilities for pre-computing keyframes and measuring velocity."
+---
+
+`@motionone/generators` (version **10.18.0**) is the physics engine layer of Motion One. It exposes two animation generators — `spring` (a damped harmonic oscillator) and `glide` (momentum-based deceleration with optional boundary bounce) — as pure functions that return an `AnimationGenerator`: a stateless function `(t: number) => AnimationGeneratorState` that can be sampled at any millisecond timestamp. The package also ships `pregenerateKeyframes` for pre-computing physics animations into discrete keyframe arrays, and `calcGeneratorVelocity` for measuring instantaneous velocity. Most projects access these generators through the [`motion`](/api/packages/motion) or `@motionone/dom` packages. Use `@motionone/generators` directly when building a custom rendering pipeline or targeting a non-DOM environment.
+
+## Installation
+
+```bash
+npm install @motionone/generators
+```
+
+## Exports
+
+<CardGroup cols={2}>
+  <Card title="spring" icon="spring">
+    A damped harmonic oscillator. Produces bouncy or smooth physics-based
+    motion. Configurable via stiffness, damping, and mass.
+  </Card>
+  <Card title="glide" icon="wind">
+    Momentum-based deceleration that mimics the feel of throwing an object.
+    Supports min/max boundaries with automatic spring-bounce recovery.
+  </Card>
+  <Card title="pregenerateKeyframes" icon="list">
+    Samples an `AnimationGenerator` at fixed time steps to produce a discrete
+    keyframe array compatible with the Web Animations API.
+  </Card>
+  <Card title="calcGeneratorVelocity" icon="gauge">
+    Computes the instantaneous velocity (units/second) of a generator at a
+    given timestamp by finite difference.
+  </Card>
+  <Card title="KeyframesMetadata (type)" icon="code">
+    The shape returned by `pregenerateKeyframes`: `keyframes`, `duration`, and
+    `overshootDuration`.
+  </Card>
+  <Card title="SpringOptions (type)" icon="code">
+    Configuration interface for the `spring` generator.
+  </Card>
+  <Card title="GlideOptions (type)" icon="code">
+    Configuration interface for the `glide` generator.
+  </Card>
+</CardGroup>
+
+---
+
+## How generators work
+
+An `AnimationGenerator` is a pure function of the form:
+
+```typescript AnimationGenerator interface
+type AnimationGenerator = (t: number) => AnimationGeneratorState
+
+interface AnimationGeneratorState {
+  done: boolean           // true when the animation has settled
+  hasReachedTarget: boolean // true when the value has crossed the target
+  current: number         // the value at time t
+  target: number          // the final resting value
+}
+```
+
+You call the generator with a time `t` in **milliseconds** and receive the physics state at that moment. Generators are **stateless** — calling them with the same `t` always returns the same result. This makes them easy to sample, cache, or replay.
+
+`pregenerateKeyframes` exploits this by sampling a generator at 10 ms intervals until `done` is `true` (or a 10-second ceiling is reached), producing a keyframe array you can hand directly to the Web Animations API or `@motionone/animation`.
+
+---
+
+## spring()
+
+`spring` implements a critically-damped or underdamped harmonic oscillator. It is the most commonly used physics generator in Motion One.
+
+### Signature
+
+```typescript
+function spring(options?: SpringOptions): AnimationGenerator
+```
+
+<ParamField path="stiffness" type="number" default="100">
+  Spring stiffness (force constant). Higher values produce a faster, snappier
+  animation.
+</ParamField>
+
+<ParamField path="damping" type="number" default="10">
+  Resistance to motion. Higher values reduce oscillation. When
+  `damping >= 2 * sqrt(stiffness * mass)` the spring is critically damped (no
+  bounce).
+</ParamField>
+
+<ParamField path="mass" type="number" default="1">
+  Mass of the simulated object. Higher mass produces a slower, heavier feel.
+</ParamField>
+
+<ParamField path="from" type="number" default="0">
+  The starting value of the animation.
+</ParamField>
+
+<ParamField path="to" type="number" default="1">
+  The target resting value.
+</ParamField>
+
+<ParamField path="velocity" type="number" default="0">
+  Initial velocity in units/second. Useful for chaining animations so the new
+  one inherits momentum from the previous.
+</ParamField>
+
+<ParamField path="restSpeed" type="number">
+  The velocity threshold (units/second) below which the spring is considered
+  settled. Defaults to `0.01` for small ranges (&lt;5 units) and `2` for
+  larger ones.
+</ParamField>
+
+<ParamField path="restDistance" type="number">
+  The distance threshold (units) from the target below which the spring is
+  considered settled. Defaults to `0.005` for small ranges and `0.5` for
+  larger ones.
+</ParamField>
+
+### Example
+
+```typescript spring generator directly
+import { spring, pregenerateKeyframes } from "@motionone/generators"
+
+// Create a spring that goes from 0 to 300 px
+const generator = spring({ stiffness: 200, damping: 15, from: 0, to: 300 })
+
+// Sample at t = 0, 100, 200 ms …
+console.log(generator(0).current)   // 0
+console.log(generator(100).current) // ~somewhere between 0 and 300
+console.log(generator(500).current) // near 300
+
+// Pre-compute to a keyframe array
+const { keyframes, duration } = pregenerateKeyframes(generator)
+console.log(`${keyframes.length} keyframes over ${duration}s`)
+```
+
+---
+
+## glide()
+
+`glide` simulates momentum-based deceleration — the motion you get when you flick an object and let friction slow it down. It accepts optional `min`/`max` boundaries; if the object overshoots a boundary, a `spring` automatically kicks in to bounce it back.
+
+### Signature
+
+```typescript
+function glide(options: GlideOptions): AnimationGenerator
+```
+
+<ParamField path="from" type="number" default="0">
+  Starting value.
+</ParamField>
+
+<ParamField path="velocity" type="number" default="0">
+  Initial velocity in units/second. This is the primary driver of the
+  animation — a higher velocity produces a longer glide.
+</ParamField>
+
+<ParamField path="power" type="number" default="0.8">
+  Multiplier applied to `velocity` to compute the initial momentum amplitude
+  (`amplitude = power * velocity`).
+</ParamField>
+
+<ParamField path="decay" type="number" default="0.325">
+  Time constant for exponential deceleration, in seconds. Larger values make
+  the glide last longer.
+</ParamField>
+
+<ParamField path="changeTarget" type="(v: number) => number">
+  Optional function to snap the ideal landing position to a different value
+  (e.g. snapping to a grid or a carousel slide).
+</ParamField>
+
+<ParamField path="min" type="number">
+  Lower boundary. If the glide crosses `min`, a spring is activated to bounce
+  the value back.
+</ParamField>
+
+<ParamField path="max" type="number">
+  Upper boundary. If the glide crosses `max`, a spring is activated to bounce
+  the value back.
+</ParamField>
+
+<ParamField path="bounceDamping" type="number">
+  Damping of the boundary-recovery spring. Uses the spring generator's
+  default if not specified.
+</ParamField>
+
+<ParamField path="bounceStiffness" type="number">
+  Stiffness of the boundary-recovery spring. Uses the spring generator's
+  default if not specified.
+</ParamField>
+
+<ParamField path="restSpeed" type="number">
+  Velocity threshold (units/second) below which the animation is considered
+  settled.
+</ParamField>
+
+<ParamField path="restDistance" type="number" default="0.5">
+  Distance threshold (units) from the target below which the animation is
+  considered settled.
+</ParamField>
+
+### Example
+
+```typescript glide generator directly
+import { glide, pregenerateKeyframes } from "@motionone/generators"
+
+// Simulate a fast flick from position 0 with velocity 2000 px/s
+const generator = glide({ from: 0, velocity: 2000, min: 0, max: 500 })
+
+const { keyframes, duration } = pregenerateKeyframes(generator)
+// keyframes is ready to pass to the Web Animations API
+element.animate(
+  { transform: keyframes.map((v) => `translateX(${v}px)`) },
+  { duration: duration * 1000, fill: "forwards", easing: "linear" }
+)
+```
+
+---
+
+## pregenerateKeyframes()
+
+Samples an `AnimationGenerator` at 10 ms intervals and returns a discrete
+keyframe array along with duration metadata. This is how `@motionone/dom`
+bridges physics generators with the browser's WAAPI.
+
+### Signature
+
+```typescript
+function pregenerateKeyframes(
+  generator: AnimationGenerator,
+  toUnit?: (value: number) => number | string
+): KeyframesMetadata
+```
+
+<ParamField path="generator" type="AnimationGenerator" required>
+  Any function conforming to `(t: number) => AnimationGeneratorState`, such as
+  the return value of `spring()` or `glide()`.
+</ParamField>
+
+<ParamField path="toUnit" type="(value: number) => number | string">
+  Optional transformer applied to each sampled value before it is added to the
+  keyframe array. Use this to convert raw numbers to CSS unit strings, e.g.
+  `(v) => v + "px"`.
+</ParamField>
+
+### Return value — `KeyframesMetadata`
+
+```typescript
+interface KeyframesMetadata {
+  keyframes: Array<string | number>  // sampled values at each 10 ms step
+  duration: number                   // total animation duration in seconds
+  overshootDuration: number          // time (s) at which the value first crossed the target
+}
+```
+
+<ParamField path="keyframes" type="Array<string | number>">
+  The pre-computed animation frames. If `toUnit` was provided the values are
+  strings; otherwise they are numbers.
+</ParamField>
+
+<ParamField path="duration" type="number">
+  Total duration of the animation in seconds (time until the generator's
+  `done` flag is `true`). Maximum is 10 seconds.
+</ParamField>
+
+<ParamField path="overshootDuration" type="number">
+  The time in seconds at which `hasReachedTarget` first became `true`. Useful
+  for defining the timing of staggered follow-through effects.
+</ParamField>
+
+### Example
+
+```typescript pregenerateKeyframes with CSS units
+import { spring, pregenerateKeyframes } from "@motionone/generators"
+
+const { keyframes, duration, overshootDuration } = pregenerateKeyframes(
+  spring({ stiffness: 300, damping: 20, from: 0, to: 100 }),
+  (v) => `${v}px`
+)
+
+console.log(keyframes[0])         // "0px"
+console.log(keyframes.at(-1))     // "100px"
+console.log(duration)             // e.g. 0.73
+console.log(overshootDuration)    // e.g. 0.41 (first crossed 100 px)
+```
+
+---
+
+## calcGeneratorVelocity()
+
+Estimates the instantaneous velocity of a generator's output at time `t` using a 5 ms finite-difference sample.
+
+### Signature
+
+```typescript
+function calcGeneratorVelocity(
+  resolveValue: (v: number) => number,
+  t: number,
+  current: number
+): number
+```
+
+<ParamField path="resolveValue" type="(v: number) => number" required>
+  A function that returns the generator's numeric output at a given timestamp.
+  Typically `(t) => generator(t).current`.
+</ParamField>
+
+<ParamField path="t" type="number" required>
+  The current timestamp in milliseconds at which to measure velocity.
+</ParamField>
+
+<ParamField path="current" type="number" required>
+  The generator's output at time `t` (avoids a redundant call to
+  `resolveValue`).
+</ParamField>
+
+**Returns** velocity in **units per second**, computed as the change in value over the 5 ms window scaled to one second.
+
+### Example
+
+```typescript Measuring spring velocity for hand-off
+import { spring, calcGeneratorVelocity } from "@motionone/generators"
+
+const gen = spring({ stiffness: 150, damping: 12, from: 0, to: 200 })
+
+const t = 300 // ms into the animation
+const state = gen(t)
+const velocity = calcGeneratorVelocity(
+  (ms) => gen(ms).current,
+  t,
+  state.current
+)
+console.log(`velocity at t=${t}ms: ${velocity.toFixed(1)} units/s`)
+```
+
+---
+
+## Using generators in a custom rendering loop
+
+The following example shows how to drive a Three.js object's position with a `spring` generator entirely outside the DOM, without using `@motionone/dom` or `@motionone/animation`.
+
+```typescript Custom rendering loop (Three.js)
+import { spring } from "@motionone/generators"
+
+let generator = spring({ stiffness: 120, damping: 14, from: 0, to: 5 })
+let startTime: number | null = null
+
+function tick(timestamp: number) {
+  if (startTime === null) startTime = timestamp
+  const t = timestamp - startTime            // elapsed ms
+
+  const { current, done } = generator(t)
+  mesh.position.x = current                  // write to Three.js object
+
+  if (!done) requestAnimationFrame(tick)
+}
+
+requestAnimationFrame(tick)
+```
+
+---
+
+## When to use `@motionone/generators` directly
+
+Most projects should use [`motion`](/api/packages/motion) or `@motionone/dom`, which integrate the generators seamlessly via `easing: spring()` or `easing: glide()`. Use `@motionone/generators` directly when you need:
+
+- **Non-DOM rendering** — Three.js, PixiJS, HTML Canvas, Web Audio, or any environment with no CSS.
+- **Server-side pre-computation** — generate keyframe arrays at build time or in an SSR context and embed them in the HTML.
+- **Custom playback control** — you manage your own `requestAnimationFrame` loop and want to sample physics state on demand.
+- **Velocity hand-off** — chain two animations by reading the outgoing animation's velocity with `calcGeneratorVelocity` and passing it as `velocity` to the next generator.

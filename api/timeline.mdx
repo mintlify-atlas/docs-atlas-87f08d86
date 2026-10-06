@@ -1,0 +1,221 @@
+---
+title: "timeline() — Sequence and Orchestrate Animations"
+sidebarTitle: "timeline()"
+description: "Compose multi-element animation sequences with precise time positioning, time labels, and shared playback controls via a single AnimationControls object."
+---
+
+`timeline()` lets you build choreographed sequences where each segment starts at an absolute time, relative to the previous segment, or at a named label. Every segment targets one or more DOM elements with the same keyframe and options API as `animate()`. The entire sequence shares a single `AnimationControls` object, so you can pause, scrub, or reverse the whole composition at once.
+
+## Signature
+
+```typescript
+function timeline(
+  definition: TimelineDefinition,
+  options?: TimelineOptions
+): AnimationControls
+```
+
+## Parameters
+
+<ParamField path="definition" type="TimelineDefinition" required>
+  An ordered array of **segments** that describes what to animate and when.
+
+  ```typescript
+  type TimelineDefinition = TimelineSegment[]
+
+  type TimelineSegment =
+    | [ElementOrSelector, MotionKeyframesDefinition]
+    | [ElementOrSelector, MotionKeyframesDefinition, AnimationListOptions]
+    | string        // time label: marks currentTime with a name
+    | AnnotatedLabel // { name: string; at: NextTime } — label at an explicit time
+  ```
+
+  Segments are processed in order. After each array segment, `currentTime` advances by the longest animation in that segment. String entries create named time labels at the current time without advancing it.
+
+  #### AnimationListOptions
+
+  Each array segment accepts an optional third element with all standard `AnimationOptions` fields, plus:
+
+  <ParamField path="at" type="NextTime">
+    Overrides where in the timeline this segment starts.
+
+    ```typescript
+    type NextTime =
+      | number          // absolute time in seconds, e.g. 1.5
+      | "<"             // start at the same time as the previous segment
+      | `+${number}`    // relative offset forward, e.g. "+0.2"
+      | `-${number}`    // relative offset backward, e.g. "-0.1"
+      | `${string}`     // a named label, e.g. "intro"
+    ```
+  </ParamField>
+
+  <ParamField path="delay" type="number | OptionResolver<number>" default="0">
+    Per-element stagger delay. Accepts a resolver function `(i, total) => number`.
+  </ParamField>
+</ParamField>
+
+<ParamField path="options" type="TimelineOptions" default="{}">
+  Global options for the entire sequence.
+
+  ```typescript
+  type TimelineOptions = PlaybackOptions & {
+    duration?: number
+    defaultOptions?: AnimationOptionsWithOverrides
+  }
+  ```
+
+  <ParamField path="duration" type="number">
+    Override the total computed duration (in seconds). Useful for stretching or compressing the timeline.
+  </ParamField>
+
+  <ParamField path="defaultOptions" type="AnimationOptionsWithOverrides">
+    Default animation options applied to every segment. Individual segments can override these.
+  </ParamField>
+
+  #### Inherited PlaybackOptions
+
+  <ParamField path="delay" type="number | OptionResolver<number>" default="0">
+    Delay before the entire timeline starts.
+  </ParamField>
+
+  <ParamField path="endDelay" type="number" default="0">
+    Extra hold time after the timeline ends.
+  </ParamField>
+
+  <ParamField path="repeat" type="number" default="0">
+    Number of extra repetitions. `Infinity` loops forever.
+  </ParamField>
+
+  <ParamField path="direction" type="PlaybackDirection" default='"normal"'>
+    `"normal"`, `"reverse"`, `"alternate"`, or `"alternate-reverse"`.
+  </ParamField>
+
+  <ParamField path="autoplay" type="boolean" default="true">
+    Set to `false` to create the timeline in a paused state.
+  </ParamField>
+</ParamField>
+
+---
+
+## Return Value
+
+<ResponseField name="AnimationControls" type="object">
+  A unified controls object for the entire sequence — the same interface returned by `animate()`.
+
+  <ResponseField name="play" type="() => void">Play or resume the timeline.</ResponseField>
+  <ResponseField name="pause" type="() => void">Pause at the current time.</ResponseField>
+  <ResponseField name="stop" type="() => void">Stop and commit current styles.</ResponseField>
+  <ResponseField name="finish" type="() => void">Jump to the end and commit final styles.</ResponseField>
+  <ResponseField name="cancel" type="() => void">Cancel and revert all element styles.</ResponseField>
+  <ResponseField name="reverse" type="() => void">Reverse playback direction.</ResponseField>
+  <ResponseField name="finished" type="Promise<any>">Resolves when the entire sequence has finished.</ResponseField>
+  <ResponseField name="playState" type='"idle" | "running" | "paused" | "finished"'>Current play state.</ResponseField>
+  <ResponseField name="playbackRate" type="number">Get or set playback speed.</ResponseField>
+  <ResponseField name="duration" type="number">Total computed duration in seconds (read-only).</ResponseField>
+  <ResponseField name="currentTime" type="number | null">Current playback position in seconds. Writable for scrubbing.</ResponseField>
+</ResponseField>
+
+---
+
+## Examples
+
+<CodeGroup>
+
+```typescript Basic sequence
+import { timeline } from "motion"
+
+timeline([
+  // 1. Fade in the heading
+  ["h1", { opacity: [0, 1], y: [-20, 0] }, { duration: 0.5 }],
+  // 2. Then reveal the subtitle (starts after heading finishes)
+  ["p.subtitle", { opacity: [0, 1] }, { duration: 0.3 }],
+  // 3. Then slide in the button
+  ["button", { opacity: [0, 1], x: [-10, 0] }, { duration: 0.3 }],
+])
+```
+
+```typescript Time labels
+import { timeline } from "motion"
+
+timeline([
+  // Mark the start of the "enter" phase
+  "enter",
+
+  ["#logo", { opacity: [0, 1] }, { duration: 0.4 }],
+  ["#nav", { opacity: [0, 1] }, { duration: 0.4, at: "enter" }],
+
+  // Mark the hero phase
+  "hero",
+
+  ["#hero-text", { y: [40, 0], opacity: [0, 1] }, { duration: 0.6, at: "hero" }],
+  ["#hero-image", { scale: [0.9, 1], opacity: [0, 1] }, { duration: 0.6, at: "hero" }],
+])
+```
+
+```typescript Overlapping with "at"
+import { timeline } from "motion"
+
+timeline([
+  [".panel-1", { x: [-100, 0], opacity: [0, 1] }, { duration: 0.5 }],
+
+  // Start at the same time as the previous segment
+  [".panel-2", { x: [100, 0], opacity: [0, 1] }, { duration: 0.5, at: "<" }],
+
+  // Start 0.2 s before the previous segment ends
+  [".cta", { scale: [0, 1] }, { duration: 0.4, at: "-0.2" }],
+])
+```
+
+```typescript Staggered children
+import { timeline } from "motion"
+
+timeline([
+  [
+    ".list-item",
+    { opacity: [0, 1], y: [10, 0] },
+    {
+      duration: 0.3,
+      delay: (i) => i * 0.06, // stagger by 60 ms per element
+    },
+  ],
+])
+```
+
+```typescript Playback control
+import { timeline } from "motion"
+
+const sequence = timeline(
+  [
+    ["#a", { rotate: [0, 180] }, { duration: 1 }],
+    ["#b", { rotate: [0, -180] }, { duration: 1 }],
+  ],
+  { autoplay: false }
+)
+
+// Scrub to the midpoint
+sequence.currentTime = sequence.duration / 2
+
+// Play from there
+sequence.play()
+
+await sequence.finished
+console.log("Sequence complete")
+```
+
+```typescript defaultOptions
+import { timeline } from "motion"
+
+timeline(
+  [
+    ["#a", { opacity: [0, 1] }],
+    ["#b", { opacity: [0, 1] }],
+    ["#c", { opacity: [0, 1] }],
+  ],
+  {
+    // Every segment uses ease-out and 0.4 s by default
+    defaultOptions: { easing: "ease-out", duration: 0.4 },
+  }
+)
+```
+
+</CodeGroup>

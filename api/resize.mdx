@@ -1,0 +1,150 @@
+---
+title: "resize() — Observe Element and Window Size Changes"
+sidebarTitle: "resize()"
+description: "Observe element or window resize events via ResizeObserver with a unified callback interface, returning a cleanup function to stop observing."
+---
+
+`resize()` provides a lightweight wrapper around `ResizeObserver` (for elements) and the `window` `resize` event (for the global window). Both overloads accept a callback that receives a `ResizeInfo` object carrying the target, its border-box size, and its content-box size. All observations are automatically batched through a shared `ResizeObserver` instance, keeping overhead minimal. Calling the returned cleanup function unobserves the target(s) and removes the callback.
+
+## Signatures
+
+```typescript
+// Observe window resize
+function resize(onResize: ResizeHandler<Window>): VoidFunction
+
+// Observe one or more element(s)
+function resize(
+  target: ElementOrSelector,
+  onResize: ResizeHandler<Element>
+): VoidFunction
+```
+
+## Parameters
+
+### Window overload
+
+<ParamField path="onResize" type="ResizeHandler<Window>" required>
+  A callback invoked whenever the window is resized.
+
+  ```typescript
+  type ResizeHandler<I> = (info: ResizeInfo<I>) => void
+
+  interface ResizeInfo<I> {
+    target: I          // Window or Element
+    size: Size         // border-box dimensions
+    contentSize: Size  // content-box dimensions
+  }
+
+  interface Size {
+    width: number
+    height: number
+  }
+  ```
+
+  For `Window`, both `size` and `contentSize` report `{ width: window.innerWidth, height: window.innerHeight }`.
+</ParamField>
+
+### Element overload
+
+<ParamField path="target" type="ElementOrSelector" required>
+  The element(s) to observe. Accepts a CSS selector string, a single `Element`, an `Element[]`, or a `NodeListOf<Element>`.
+
+  ```typescript
+  type ElementOrSelector =
+    | Element
+    | Element[]
+    | NodeListOf<Element>
+    | string
+  ```
+</ParamField>
+
+<ParamField path="onResize" type="ResizeHandler<Element>" required>
+  Called via `ResizeObserver` whenever any of the observed elements change size.
+
+  - `info.size` — border-box dimensions (`borderBoxSize[0]` when available, otherwise `offsetWidth`/`offsetHeight`; for SVG elements, `getBBox()` is used).
+  - `info.contentSize` — content-box dimensions from `contentRect`.
+  - `info.target` — the `Element` that changed.
+</ParamField>
+
+---
+
+## Return Value
+
+<ResponseField name="VoidFunction" type="() => void">
+  A cleanup function. For the element overload, calling it unobserves each element and removes the handler from the shared `ResizeObserver`. For the window overload, it deregisters the window resize callback.
+</ResponseField>
+
+---
+
+## Examples
+
+<CodeGroup>
+
+```typescript Window resize
+import { resize } from "motion"
+
+const stop = resize(({ size }) => {
+  console.log(`Window: ${size.width}×${size.height}`)
+
+  if (size.width < 768) {
+    // apply mobile layout
+  }
+})
+
+// Disconnect when done
+stop()
+```
+
+```typescript Single element
+import { resize } from "motion"
+
+const box = document.querySelector("#resizable")
+
+const stop = resize(box, ({ target, size, contentSize }) => {
+  console.log(`Border-box:  ${size.width}×${size.height}`)
+  console.log(`Content-box: ${contentSize.width}×${contentSize.height}`)
+})
+
+stop()
+```
+
+```typescript Multiple elements
+import { resize } from "motion"
+
+const stop = resize(".panel", ({ target, size }) => {
+  // Called individually for each .panel that changes size
+  console.log(target, size.width, size.height)
+})
+
+stop()
+```
+
+```typescript Animate on resize
+import { animate, resize } from "motion"
+
+resize("#hero", ({ size }) => {
+  // Scale a child element proportionally to the hero width
+  const scale = size.width / 1200
+  animate("#hero-logo", { scale: [null, scale] }, { duration: 0.2 })
+})
+```
+
+```typescript Combined with scroll
+import { animate, scroll, resize } from "motion"
+
+// Re-initialise the scroll-linked animation when the window resizes
+function initScrollAnimation() {
+  return scroll(
+    animate("#progress", { scaleX: [0, 1] }, { duration: 1, easing: "linear" })
+  )
+}
+
+let stopScroll = initScrollAnimation()
+
+resize(() => {
+  stopScroll()
+  stopScroll = initScrollAnimation()
+})
+```
+
+</CodeGroup>

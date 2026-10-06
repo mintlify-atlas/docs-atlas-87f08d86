@@ -1,0 +1,174 @@
+---
+title: "glide() — Momentum-Based Glide Easing"
+sidebarTitle: "glide()"
+description: "A momentum-based animation generator for Motion One. Simulates friction deceleration from an initial velocity, with spring-back when boundaries are hit."
+---
+
+`glide()` is an **EasingGenerator** that simulates the momentum-driven deceleration of an object sliding across a surface, like a phone list after a swipe gesture. Motion decays exponentially from an initial velocity until the object comes to rest. If optional `min`/`max` boundaries are set and the natural target overshoots them, a spring animation automatically catches the value and bounces it back.
+
+Like `spring()`, `glide()` generates its own keyframes and duration — any `duration` set alongside it is ignored.
+
+`glide` is exported from the `motion` package:
+
+```typescript
+import { glide } from "motion"
+```
+
+## Basic usage
+
+```typescript
+import { animate, glide } from "motion"
+
+animate(
+  "#card",
+  { transform: "translateY(300px)" },
+  { easing: glide({ velocity: 800 }) }
+)
+```
+
+## Examples
+
+### Bounded glide with spring-back
+
+Use `min` and `max` to clamp where the animation can settle. Values that overshoot the boundary trigger an automatic spring rebound:
+
+```typescript
+animate(
+  "#list",
+  { transform: "translateY(0px)" },
+  {
+    easing: glide({
+      velocity: 1200,
+      min: 0,
+      max: 500,
+      bounceStiffness: 200,
+      bounceDamping: 25,
+    }),
+  }
+)
+```
+
+### Custom target with `changeTarget`
+
+Snap the final resting position to a fixed grid by supplying a `changeTarget` function:
+
+```typescript
+animate(
+  "#carousel",
+  { transform: "translateX(0px)" },
+  {
+    easing: glide({
+      velocity: 600,
+      changeTarget: (ideal) => Math.round(ideal / 100) * 100,
+    }),
+  }
+)
+```
+
+<Note>
+  `glide()` is an **EasingGenerator**, not a plain easing function. It returns
+  an object with a `createAnimation` method that Motion One calls internally to
+  compute keyframes and a physics-derived duration. The `duration` option on
+  `animate()` or `timeline()` is therefore ignored when `glide()` is used as
+  the easing.
+</Note>
+
+## Options
+
+<ParamField path="velocity" type="number" default="0">
+  The initial velocity of the glide in units per second. This is the primary
+  driver of how far and how fast the object travels. Typically sourced from a
+  pointer or gesture event's current velocity.
+</ParamField>
+
+<ParamField path="power" type="number" default="0.8">
+  A multiplier applied to `velocity` to compute the animation's raw amplitude:
+  `amplitude = power * velocity`. Higher values make the object travel further
+  from its starting point before decaying to rest.
+</ParamField>
+
+<ParamField path="decay" type="number" default="0.325">
+  The time constant (in seconds) of the exponential decay. The displacement at
+  time `t` follows `-amplitude * exp(-t / decay)`. Larger values produce a
+  longer, slower deceleration; smaller values snap to rest more quickly.
+</ParamField>
+
+<ParamField path="changeTarget" type="(idealTarget: number) => number">
+  An optional function that receives the naturally computed target value and
+  returns a replacement. Use this to snap or constrain the resting position —
+  for example, rounding to a grid increment — without triggering a spring
+  rebound.
+</ParamField>
+
+<ParamField path="min" type="number">
+  The lower boundary. If the glide's natural trajectory would take the value
+  below `min`, a spring animation is automatically engaged at the moment the
+  boundary is crossed to bounce the value back.
+</ParamField>
+
+<ParamField path="max" type="number">
+  The upper boundary. If the glide's natural trajectory would take the value
+  above `max`, a spring animation is automatically engaged at the moment the
+  boundary is crossed to bounce the value back.
+</ParamField>
+
+<ParamField path="bounceStiffness" type="number">
+  The stiffness of the spring used when a boundary is hit. See
+  [`spring()`](/api/spring) for details. Only relevant when `min` or `max` are
+  set.
+</ParamField>
+
+<ParamField path="bounceDamping" type="number">
+  The damping of the spring used when a boundary is hit. See
+  [`spring()`](/api/spring) for details. Only relevant when `min` or `max` are
+  set.
+</ParamField>
+
+<ParamField path="restSpeed" type="number">
+  The velocity threshold (in units/second) below which the glide is considered
+  at rest. Used both during the friction phase and (when boundaries are set) by
+  the rebound spring.
+</ParamField>
+
+<ParamField path="restDistance" type="number" default="0.5">
+  The displacement threshold (in units) below which the glide is considered at
+  rest. The animation ends when the remaining displacement falls within this
+  value.
+</ParamField>
+
+<ParamField path="from" type="number" default="0">
+  The starting value of the glide. When used as an easing in `animate()`, this
+  is set automatically from the animation's first keyframe.
+</ParamField>
+
+<ParamField path="to" type="number">
+  An explicit target value. Rarely needed — in most cases, the target is
+  computed automatically from `velocity` and `power`.
+</ParamField>
+
+## glide vs spring
+
+| | `glide()` | `spring()` |
+|---|---|---|
+| **Primary input** | Initial `velocity` | `stiffness` + `damping` |
+| **Motion shape** | Exponential friction decay | Oscillating spring |
+| **Overshoots?** | Only if boundary bounce | Yes (when underdamped) |
+| **Boundaries** | `min` / `max` with auto spring | No built-in bounds |
+| **Best for** | Fling / swipe gestures | UI transitions, bouncy feel |
+
+## TypeScript
+
+```typescript
+import { glide } from "motion"
+import type { GlideOptions } from "motion"
+
+const options: GlideOptions = {
+  velocity: 1000,
+  power: 0.8,
+  decay: 0.4,
+  min: 0,
+  max: 600,
+}
+
+animate("#panel", { transform: "translateX(0px)" }, { easing: glide(options) })
+```

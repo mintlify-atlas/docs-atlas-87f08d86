@@ -1,0 +1,229 @@
+---
+title: "@motionone/animation: WAAPI Polyfill Package"
+sidebarTitle: "@motionone/animation"
+description: "The @motionone/animation package provides the Animation class — a requestAnimationFrame-based polyfill for the Web Animations API — plus core easing resolution utilities."
+---
+
+`@motionone/animation` (version **10.18.0**) is the low-level animation engine at the heart of Motion One. It provides the `Animation` class — a lightweight, `requestAnimationFrame`-driven implementation of the [Web Animations API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Animations_API) (WAAPI) — along with the `getEasingFunction` utility used throughout the library to resolve easing definitions into callable functions. Most projects should use the higher-level [`motion`](/api/packages/motion) or `@motionone/dom` packages instead; reach for `@motionone/animation` directly when building a custom animation pipeline that needs direct control over individual animated values.
+
+## Installation
+
+```bash
+npm install @motionone/animation
+```
+
+## Exports
+
+<CardGroup cols={2}>
+  <Card title="Animation" icon="circle-play">
+    A `requestAnimationFrame`-based animation class that accepts an output
+    callback, a keyframes array, and `AnimationOptions`. The primary export of
+    this package.
+  </Card>
+  <Card title="getEasingFunction" icon="chart-line">
+    Resolves any `Easing` definition or `EasingFunction` into a callable
+    `(t: number) => number`. Supports named easings, cubic-bezier arrays, and
+    `steps()` strings.
+  </Card>
+</CardGroup>
+
+---
+
+## Animation class
+
+`Animation` drives a single animated value over time using `requestAnimationFrame`. It implements the same interface as the browser's native `Animation` object (i.e. `AnimationControls` minus `stop` and `duration`), making it a drop-in polyfill where WAAPI is unavailable or insufficient.
+
+### Constructor
+
+```typescript
+new Animation(
+  output: (v: number) => void,
+  keyframes?: number[],
+  options?: AnimationOptions
+)
+```
+
+<ParamField path="output" type="(v: number) => void" required>
+  A callback that is called on every animation frame with the current
+  interpolated value. For a standard animation the value moves between the
+  provided `keyframes`. When used by `motion`'s `animateProgress`, the keyframes
+  are `[0, 1]` so the output is a progress value from `0` to `1`.
+</ParamField>
+
+<ParamField path="keyframes" type="number[]" default="[0, 1]">
+  An array of numeric values to interpolate between. You can supply more than
+  two values to create multi-segment animations; combine with `offset` in
+  `options` to control timing between segments.
+</ParamField>
+
+<ParamField path="options" type="AnimationOptions" default="{}">
+  Standard animation options. All fields are optional.
+
+  | Option | Type | Default | Description |
+  |---|---|---|---|
+  | `duration` | `number` | `0.3` | Duration in seconds |
+  | `easing` | `Easing \| EasingGenerator \| EasingFunction \| Easing[]` | `"ease"` | Easing curve or generator |
+  | `delay` | `number` | `0` | Start delay in seconds |
+  | `endDelay` | `number` | `0` | End hold time in seconds |
+  | `repeat` | `number` | `0` | Repeat count after first play |
+  | `direction` | `PlaybackDirection` | `"normal"` | Playback direction |
+  | `offset` | `number[]` | `[0, 1]` | Per-keyframe offsets |
+  | `autoplay` | `boolean` | `true` | Start immediately |
+</ParamField>
+
+### Relationship to WAAPI
+
+The Web Animations API is the browser-native system for animating DOM properties. `@motionone/animation`'s `Animation` class mirrors the WAAPI `Animation` interface but operates entirely in JavaScript via `requestAnimationFrame`, which gives Motion One:
+
+- **Consistent behaviour** across browsers that have incomplete or buggy WAAPI support (notably WebKit-based browsers).
+- **Custom output targets** — the `output` callback can write to anything: DOM styles, canvas, WebGL uniforms, or React state. It is not limited to CSS properties.
+- **EasingGenerator support** — `spring()` and `glide()` easing generators are resolved at construction time and seamlessly folded into the animation's keyframes and duration.
+
+### Instance properties and methods
+
+<ParamField path="play" type="() => void">
+  Resume or start playback. Sets `playState` to `"running"` and schedules the
+  next `requestAnimationFrame` tick.
+</ParamField>
+
+<ParamField path="pause" type="() => void">
+  Pause playback at the current frame. Sets `playState` to `"paused"`.
+</ParamField>
+
+<ParamField path="finish" type="() => void">
+  Immediately advance the animation to its end, call `output` with the final
+  value, and resolve the `finished` promise.
+</ParamField>
+
+<ParamField path="stop" type="() => void">
+  Halt the animation without committing styles. Sets `playState` to `"idle"`,
+  cancels any pending frame, and rejects the `finished` promise.
+</ParamField>
+
+<ParamField path="cancel" type="() => void">
+  Stop the animation and revert to the value at the moment playback started.
+</ParamField>
+
+<ParamField path="reverse" type="() => void">
+  Flip the playback rate (`rate *= -1`), effectively reversing direction.
+</ParamField>
+
+<ParamField path="commitStyles" type="() => void">
+  No-op stub included for WAAPI interface compatibility.
+</ParamField>
+
+<ParamField path="finished" type="Promise<any>">
+  Resolves with the final interpolated value when the animation completes.
+  Rejects if `stop()` is called before completion.
+</ParamField>
+
+<ParamField path="playState" type='"idle" | "running" | "paused" | "finished"'>
+  Current playback state.
+</ParamField>
+
+<ParamField path="startTime" type="number | null">
+  The `performance.now()` timestamp at which the animation started. Used
+  internally to calculate progress on each tick.
+</ParamField>
+
+<ParamField path="currentTime" type="number | null">
+  Get or set the current playback position in **milliseconds**. Setting this
+  while paused updates the pause position; setting it while running shifts
+  `startTime` accordingly.
+</ParamField>
+
+<ParamField path="playbackRate" type="number">
+  Get or set the playback rate. `1` = normal, `2` = double speed, `-1` = reverse.
+</ParamField>
+
+### Usage example
+
+```typescript Basic usage
+import { Animation } from "@motionone/animation"
+
+// Animate a value from 0 to 100 over 0.5 s
+const anim = new Animation(
+  (value) => {
+    element.style.setProperty("--x", `${value}px`)
+  },
+  [0, 100],
+  { duration: 0.5, easing: "ease-out" }
+)
+
+await anim.finished
+console.log("animation complete")
+```
+
+```typescript With an EasingGenerator (spring)
+import { Animation } from "@motionone/animation"
+import { spring } from "@motionone/dom"
+
+// spring() is an EasingGenerator — Animation resolves it at construction
+const anim = new Animation(
+  (v) => (element.style.opacity = String(v)),
+  [0, 1],
+  { easing: spring({ stiffness: 200, damping: 20 }) }
+)
+```
+
+```typescript Custom pipeline — writing to a WebGL uniform
+import { Animation } from "@motionone/animation"
+
+let uniformValue = 0
+
+const anim = new Animation(
+  (v) => {
+    uniformValue = v
+    gl.uniform1f(uLocation, v)
+  },
+  [0, 1],
+  { duration: 1.2, easing: "ease-in-out", autoplay: false }
+)
+
+// Start on user interaction
+button.addEventListener("click", () => anim.play())
+```
+
+---
+
+## getEasingFunction
+
+Resolves any supported easing definition into a callable `EasingFunction`.
+
+```typescript Signature
+function getEasingFunction(
+  definition: Easing | EasingFunction
+): EasingFunction
+```
+
+<ParamField path="definition" type="Easing | EasingFunction" required>
+  One of the following:
+
+  - A named easing string: `"linear"`, `"ease"`, `"ease-in"`, `"ease-out"`, `"ease-in-out"`
+  - A cubic-bezier array: `[x1, y1, x2, y2]`
+  - A steps string: `"steps(n, start)"` or `"steps(n, end)"`
+  - An already-resolved `(t: number) => number` function (returned as-is)
+</ParamField>
+
+**Returns** `(t: number) => number` — a function that maps a linear progress value `t` (0–1) to an eased output value.
+
+```typescript Example
+import { getEasingFunction } from "@motionone/animation"
+
+const ease = getEasingFunction("ease-in-out")
+console.log(ease(0.5))  // ~0.5 (symmetric midpoint of ease-in-out)
+
+const custom = getEasingFunction([0.17, 0.67, 0.83, 0.67])
+console.log(custom(0.25))
+```
+
+---
+
+## When to use `@motionone/animation` directly
+
+Most developers should use the [`motion`](/api/packages/motion) package. Reach for `@motionone/animation` in these scenarios:
+
+- **Non-DOM environments** — you need to animate numeric values without any DOM dependency (e.g. React Native, Node.js canvas workers, server-side rendering helpers).
+- **Custom rendering engines** — you want to drive WebGL uniforms, Web Audio parameters, or any other value that is not a CSS property.
+- **Tree-shaking a minimal bundle** — you only need the animation tick loop without `timeline`, scroll, gestures, or any other DOM utility.
+- **Embedding in a larger system** — you are building your own high-level animation API (similar to how `@motionone/dom` uses `Animation` internally).

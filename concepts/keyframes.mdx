@@ -1,0 +1,197 @@
+---
+title: "Keyframes: Defining Animation Values"
+sidebarTitle: "Keyframes"
+description: "Learn how to define animation keyframes in Motion One using single values, value arrays, null for current value, CSS variables, and keyframe offsets."
+---
+
+Keyframes tell Motion One what values to animate and where to animate them to. The second argument to `animate()` is a `MotionKeyframesDefinition` — a plain object whose keys are CSS property names (or transform shorthands or CSS custom properties) and whose values describe the animation target(s) for that property.
+
+## The `MotionKeyframesDefinition` type
+
+A `MotionKeyframesDefinition` maps any animatable property name to a `ValueKeyframesDefinition`:
+
+```typescript
+type ValueKeyframe = string | number
+type UnresolvedValueKeyframe = ValueKeyframe | null
+
+type ValueKeyframesDefinition =
+  | ValueKeyframe              // single target value
+  | ValueKeyframe[]            // explicit start → ... → end
+  | UnresolvedValueKeyframe[]  // array that may include null ("current value")
+```
+
+Every leaf value (`ValueKeyframe`) is either a **number** or a **string**. Numbers are converted to the appropriate unit automatically for transforms (see [CSS Transforms](/concepts/transforms)). Strings are passed straight to the browser.
+
+## Keyframe syntaxes
+
+### Single value — animate *to* a target
+
+Pass a single `string` or `number` to animate from the element's current style to the given value. This is the most concise syntax and works well for simple transitions.
+
+```javascript
+import { animate } from "motion"
+
+// Fade out from whatever opacity the element currently has
+animate("#box", { opacity: 0 })
+
+// Slide right from the element's current x
+animate("#box", { x: 100 })
+
+// Works with any CSS property
+animate("#box", { backgroundColor: "#ff0000", borderRadius: "50%" })
+```
+
+### Array of values — explicit keyframes
+
+Pass an array to define multiple keyframes. The browser distributes them evenly across the animation's `duration` by default (overridable with `offset`).
+
+```javascript
+import { animate } from "motion"
+
+// Two keyframes: start at 0, end at 100
+animate("#box", { x: [0, 100] })
+
+// Three keyframes: pulse in and then out
+animate("#box", { scale: [1, 1.3, 1] })
+
+// Four keyframes across the timeline
+animate("#box", { opacity: [0, 1, 1, 0] })
+
+// Mix units freely — strings and numbers can coexist
+animate("#box", { y: ["0px", "-20px", "0px"] })
+```
+
+### `null` as the first keyframe — use the current value
+
+When the first element of a keyframe array is `null`, Motion One reads the element's current computed style at animation start time and uses that as the opening keyframe. This avoids the need to hard-code starting values and makes it easy to animate from wherever the element currently is.
+
+```javascript
+import { animate } from "motion"
+
+// The element's current opacity becomes the from-value automatically
+animate("#box", { opacity: [null, 1] })
+
+// Animate from current position to a new one without knowing the start
+animate("#box", { x: [null, 200] })
+
+// Works for multiple properties at once
+animate("#box", {
+  x: [null, 100],
+  opacity: [null, 0.5],
+})
+```
+
+<Tip>
+  `null` as the first keyframe is especially useful inside event handlers or after a previous animation, where the element's current state is unknown at write-time.
+</Tip>
+
+## Animatable properties
+
+### CSS properties
+
+Any CSS property that the browser supports can be animated. Use camelCase names (as in `backgroundColor`) or quoted kebab-case strings (as in `"background-color"`):
+
+```javascript
+animate("#box", {
+  opacity: 0,
+  backgroundColor: "royalblue",
+  borderRadius: "12px",
+  fontSize: "24px",
+  padding: "20px",
+})
+```
+
+### Transform shorthands
+
+Motion One provides shorthand names for individual transform axes that map to CSS custom property–based individual transforms under the hood (see [CSS Transforms](/concepts/transforms) for full details):
+
+| Shorthand | CSS equivalent      |
+|-----------|---------------------|
+| `x`       | `translateX`        |
+| `y`       | `translateY`        |
+| `z`       | `translateZ`        |
+| `rotate`  | `rotate`            |
+| `rotateX` | `rotateX`           |
+| `rotateY` | `rotateY`           |
+| `rotateZ` | `rotateZ`           |
+| `scale`   | `scale`             |
+| `scaleX`  | `scaleX`            |
+| `scaleY`  | `scaleY`            |
+| `skewX`   | `skewX`             |
+| `skewY`   | `skewY`             |
+
+```javascript
+import { animate } from "motion"
+
+// Plain numbers — units are inferred (x/y → px, rotate → deg)
+animate("#box", {
+  x: 100,
+  y: -50,
+  rotate: 45,
+  scale: 1.2,
+})
+
+// Explicit strings also work
+animate("#box", { rotate: "1.5rad", x: "10vw" })
+```
+
+### CSS custom properties (variables)
+
+Any property whose name starts with `--` is treated as a CSS custom property. The variable must be registered with the browser (via `CSS.registerProperty` or `@property`) for native WAAPI animation. In browsers without that support, Motion One falls back to setting the value directly.
+
+```javascript
+import { animate } from "motion"
+
+// Animate a custom property used in a gradient or a color calculation
+animate("#box", {
+  "--highlight-opacity": [0, 1],
+  "--offset-x": ["0px", "40px"],
+})
+```
+
+```css
+#box {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 200, 0, var(--highlight-opacity, 0)),
+    transparent
+  );
+  transform: translateX(var(--offset-x, 0px));
+}
+```
+
+## Non-uniform timing with `offset`
+
+By default, multiple keyframes are distributed evenly over the animation duration. The `offset` option lets you position each keyframe at an explicit point in time, expressed as a number between `0` (start) and `1` (end).
+
+The number of `offset` entries must match the number of keyframes for each property.
+
+```javascript
+import { animate } from "motion"
+
+// Spend 80% of the time going up, 20% coming back
+animate(
+  "#box",
+  { y: [0, -100, 0] },
+  {
+    duration: 1,
+    offset: [0, 0.8, 1],
+  }
+)
+```
+
+```javascript
+// Hold at full opacity for the first 60%, then fade in the last 40%
+animate(
+  "#box",
+  { opacity: [0, 0, 1] },
+  {
+    duration: 2,
+    offset: [0, 0.6, 1],
+  }
+)
+```
+
+<Note>
+  `offset` is passed at the top level of the options object and applies to all animated properties in that `animate()` call. For per-property offsets on a complex animation, use `timeline()` instead.
+</Note>

@@ -1,0 +1,317 @@
+---
+title: "motion Package: Main Entry Point and API"
+sidebarTitle: "motion"
+description: "The motion npm package is the recommended entry point for Motion One. It extends @motionone/dom's animate() with ProgressFunction support and re-exports all DOM and type APIs."
+---
+
+The `motion` package (version **10.18.0**) is the top-level npm package for Motion One — a tiny, performant animation library for the web. It is the recommended starting point for most projects. Under the hood it re-exports everything from `@motionone/dom` and `@motionone/types`, while providing its own enhanced `animate()` function that adds a `ProgressFunction` overload not available in `@motionone/dom` directly.
+
+## Installation
+
+```bash
+npm install motion
+```
+
+## Import styles
+
+<CodeGroup>
+
+```typescript ES Modules (named import)
+import { animate, timeline, spring, inView, scroll, stagger } from "motion"
+```
+
+```typescript Destructured by feature
+import { animate } from "motion"
+import { timeline } from "motion"
+import { spring, glide } from "motion"
+import { inView, scroll, resize } from "motion"
+```
+
+```javascript CommonJS
+const { animate, timeline, spring } = require("motion")
+```
+
+</CodeGroup>
+
+---
+
+## animate()
+
+The `motion` package exports its own `animate()` function that wraps `@motionone/dom`'s `animate()` with an additional overload: when the first argument is a `ProgressFunction` (a plain JavaScript function `(t: number) => void`), the animation drives that callback across a `[0, 1]` range instead of animating DOM elements. All other calls are forwarded transparently to `@motionone/dom`.
+
+### Overloads
+
+```typescript
+// Overload 1 – animate DOM elements (identical to @motionone/dom)
+function animate(
+  elements: ElementOrSelector,
+  keyframes: MotionKeyframesDefinition,
+  options?: AnimationOptionsWithOverrides
+): AnimationControls
+
+// Overload 2 – animate a ProgressFunction (unique to the motion package)
+function animate(
+  target: ProgressFunction,
+  options?: AnimationOptions
+): AnimationControls
+```
+
+### Parameters — DOM overload
+
+<ParamField path="elements" type="ElementOrSelector" required>
+  A CSS selector string, a single `Element`, or an `Element[]` / `NodeList` to
+  animate.
+</ParamField>
+
+<ParamField path="keyframes" type="MotionKeyframesDefinition" required>
+  An object whose keys are CSS property names (camelCase or kebab-case) and
+  whose values are a single target value or an array of keyframe values.
+</ParamField>
+
+<ParamField path="options" type="AnimationOptionsWithOverrides">
+  Per-animation options such as `duration`, `easing`, `delay`, `repeat`,
+  `direction`, and per-property overrides. See
+  [`AnimationOptions`](#animationoptions) for the full type reference.
+</ParamField>
+
+### Parameters — ProgressFunction overload
+
+<ParamField path="target" type="ProgressFunction" required>
+  A callback `(t: number) => void` that will be called on every animation frame
+  with a progress value interpolated from `0` to `1` over the animation
+  duration.
+</ParamField>
+
+<ParamField path="options" type="AnimationOptions">
+  Standard animation options (`duration`, `easing`, `delay`, `repeat`, etc.).
+  `keyframes` is fixed to `[0, 1]` — the output value `t` passed to the
+  callback reflects the eased progress.
+</ParamField>
+
+### Return value
+
+Both overloads return an [`AnimationControls`](#animationcontrols) object.
+
+### Examples
+
+```typescript DOM animation
+import { animate } from "motion"
+
+// Fade out and slide an element
+animate("#hero", { opacity: 0, transform: "translateY(-20px)" }, { duration: 0.4 })
+```
+
+```typescript ProgressFunction animation
+import { animate } from "motion"
+
+// Drive a custom canvas draw with a spring easing
+import { spring } from "motion"
+
+animate(
+  (progress) => {
+    // progress goes from 0 → 1 over the animation duration
+    myCanvas.draw(progress)
+  },
+  { duration: 1, easing: spring() }
+)
+```
+
+---
+
+## animateProgress()
+
+`animateProgress` is an internal helper used by `animate()` when the target is a `ProgressFunction`. It is exported from `motion/src/animate.ts` but not part of the public surface of the `motion` package's `index.ts`. You should use the main `animate()` overload instead.
+
+```typescript Internal signature (informational)
+function animateProgress(
+  target: ProgressFunction,
+  options?: AnimationOptions
+): AnimationControls
+```
+
+Internally it creates a new [`Animation`](/api/packages/animation) instance with keyframes `[0, 1]`, wraps it with `withControls` from `@motionone/dom`, and returns the resulting `AnimationControls`. The `ProgressFunction` receives eased, interpolated values on every `requestAnimationFrame` tick.
+
+---
+
+## All exports
+
+The `motion` package re-exports the entire public API of `@motionone/dom` and `@motionone/types`, plus its own `animate()`.
+
+<CardGroup cols={2}>
+  <Card title="animate" icon="play">
+    Enhanced `animate()` with `ProgressFunction` support. Unique to the
+    `motion` package — the primary API for animating both DOM elements and
+    custom callbacks.
+  </Card>
+  <Card title="timeline" icon="list-timeline">
+    Sequence multiple animations across elements and properties with precise
+    time offsets. Re-exported from `@motionone/dom`.
+  </Card>
+  <Card title="spring" icon="spring">
+    Physics-based spring easing generator. Pass as the `easing` option to
+    `animate()` or `timeline()`. Re-exported from `@motionone/dom`.
+  </Card>
+  <Card title="glide" icon="wind">
+    Momentum-based glide easing with optional boundary bounce. Re-exported
+    from `@motionone/dom`.
+  </Card>
+  <Card title="inView" icon="eye">
+    Trigger callbacks when elements enter or leave the viewport (IntersectionObserver wrapper). Re-exported from `@motionone/dom`.
+  </Card>
+  <Card title="scroll" icon="arrow-down">
+    Drive animations with scroll progress, with support for scroll-linked and
+    scroll-triggered modes. Re-exported from `@motionone/dom`.
+  </Card>
+  <Card title="resize" icon="arrows-maximize">
+    Observe element or window resize events. Re-exported from
+    `@motionone/dom`.
+  </Card>
+  <Card title="stagger" icon="layer-group">
+    Helper to offset animation `delay` across a list of elements.
+    Re-exported from `@motionone/dom`.
+  </Card>
+  <Card title="style" icon="paintbrush">
+    Read and write element styles in a way that is compatible with Motion
+    One's transform model. Re-exported from `@motionone/dom`.
+  </Card>
+  <Card title="AnimationControls (type)" icon="code">
+    The object returned by `animate()` and `timeline()`, with `.play()`,
+    `.pause()`, `.stop()`, `.finish()`, `.cancel()`, `.reverse()`,
+    `playbackRate`, `currentTime`, `duration`, and `finished`. Re-exported
+    from `@motionone/types`.
+  </Card>
+  <Card title="AnimationOptions (type)" icon="code">
+    Options accepted by `animate()`: `duration`, `easing`, `delay`,
+    `endDelay`, `repeat`, `direction`, `offset`, `autoplay`,
+    `allowWebkitAcceleration`. Re-exported from `@motionone/types`.
+  </Card>
+  <Card title="ProgressFunction (type)" icon="code">
+    `(t: number) => void` — a callback that receives animation progress.
+    Re-exported from `@motionone/types`.
+  </Card>
+</CardGroup>
+
+### Full re-export list from `@motionone/dom`
+
+```typescript
+export {
+  animate,          // overridden by motion's own animate
+  createAnimate,
+  animateStyle,
+  timeline,
+  stagger,
+  spring,
+  glide,
+  style,
+  inView,
+  resize,
+  scroll,
+  ScrollOffset,
+  withControls,
+  getAnimationData,
+  getStyleName,
+  createMotionState,
+  mountedStates,
+  createStyles,
+  createStyleString,
+  // …plus all types from @motionone/dom and @motionone/types
+} from "@motionone/dom"
+```
+
+---
+
+## AnimationControls
+
+Every call to `animate()` or `timeline()` returns an `AnimationControls` object.
+
+<ParamField path="play" type="() => void">
+  Resume or start playback.
+</ParamField>
+
+<ParamField path="pause" type="() => void">
+  Pause playback at the current time.
+</ParamField>
+
+<ParamField path="stop" type="() => void">
+  Stop the animation and commit the current value to the element's styles.
+</ParamField>
+
+<ParamField path="finish" type="() => void">
+  Immediately complete the animation and commit the final keyframe.
+</ParamField>
+
+<ParamField path="cancel" type="() => void">
+  Cancel the animation and revert the element to its underlying styles.
+</ParamField>
+
+<ParamField path="reverse" type="() => void">
+  Reverse the playback direction.
+</ParamField>
+
+<ParamField path="finished" type="Promise<any>">
+  A `Promise` that resolves when the animation has finished.
+</ParamField>
+
+<ParamField path="playState" type='"idle" | "running" | "paused" | "finished"'>
+  The current play state of the animation.
+</ParamField>
+
+<ParamField path="currentTime" type="number | null">
+  Get or set the current playback position in milliseconds.
+</ParamField>
+
+<ParamField path="duration" type="number">
+  Read-only total duration of the animation in seconds.
+</ParamField>
+
+<ParamField path="playbackRate" type="number">
+  Get or set the playback rate. `1` = normal speed, `2` = double speed, `-1`
+  = reverse.
+</ParamField>
+
+---
+
+## AnimationOptions
+
+<ParamField path="duration" type="number" default="0.3">
+  Duration of the animation in seconds.
+</ParamField>
+
+<ParamField path="easing" type="Easing | EasingGenerator | EasingFunction | Easing[]" default='"ease"'>
+  Easing curve for the whole animation or per keyframe. Accepts named strings
+  (`"linear"`, `"ease"`, `"ease-in"`, `"ease-out"`, `"ease-in-out"`), a
+  cubic-bezier array `[x1, y1, x2, y2]`, a `steps()` string, an
+  `EasingGenerator` (e.g. `spring()`, `glide()`), or a custom
+  `(t: number) => number` function.
+</ParamField>
+
+<ParamField path="delay" type="number" default="0">
+  Delay before the animation starts, in seconds. Accepts an `OptionResolver`
+  `(i, total) => number` when animating multiple elements.
+</ParamField>
+
+<ParamField path="endDelay" type="number" default="0">
+  Time to wait at the end before the animation finishes, in seconds.
+</ParamField>
+
+<ParamField path="repeat" type="number" default="0">
+  Number of times the animation repeats after the first play.
+</ParamField>
+
+<ParamField path="direction" type='"normal" | "reverse" | "alternate" | "alternate-reverse"' default='"normal"'>
+  Direction of playback.
+</ParamField>
+
+<ParamField path="offset" type="number[]" default="[0, 1]">
+  Keyframe offsets as values between `0` and `1`. Length must match the
+  number of keyframes.
+</ParamField>
+
+<ParamField path="autoplay" type="boolean" default="true">
+  Whether to start playback immediately on creation.
+</ParamField>
+
+<ParamField path="allowWebkitAcceleration" type="boolean" default="false">
+  Allow hardware-accelerated animations in WebKit browsers. Disabled by
+  default due to known WebKit timing bugs.
+</ParamField>

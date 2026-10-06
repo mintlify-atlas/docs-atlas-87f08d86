@@ -1,0 +1,244 @@
+---
+title: "Hover, Press, and In-View Gesture Animations"
+sidebarTitle: "Gestures"
+description: "Respond to pointer and visibility events with Motion One's gesture system: hover, press, and inView states with full variant support and custom DOM events."
+---
+
+Motion One provides a rich gesture system that lets elements respond to user interaction and viewport visibility without writing a single event listener by hand. Gestures are first-class options on `createMotionState()`, and the standalone `inView()` and `resize()` utilities give you direct access to the underlying observers when you need more control.
+
+---
+
+## Gesture states in `createMotionState()`
+
+The variant/state system (described in full in [Variants](/guides/variants)) supports three gesture states that activate automatically when the relevant pointer or intersection event fires:
+
+| State | Triggers when… |
+|---|---|
+| `hover` | A mouse pointer enters the element (`pointerenter`). |
+| `press` | The element is pressed / clicked (`pointerdown`). |
+| `inView` | The element intersects the viewport. |
+
+Each state accepts either an inline `Variant` object (a map of CSS properties and an optional `transition`) or a string name that references an entry in your `variants` map.
+
+```javascript
+import { createMotionState } from "motion"
+
+const state = createMotionState({
+  animate: { scale: 1, opacity: 1 },
+  hover:   { scale: 1.05 },
+  press:   { scale: 0.97 },
+})
+
+const cleanup = state.mount(document.querySelector(".button"))
+```
+
+### Hover animation
+
+Use the `hover` option to describe the styles that should be active while the pointer is over the element. When the pointer leaves, the state reverts automatically.
+
+```javascript
+const state = createMotionState({
+  animate: { background: "#3b82f6" },
+  hover:   { background: "#2563eb", scale: 1.04 },
+  transition: { duration: 0.2 },
+})
+
+state.mount(document.querySelector(".cta-button"))
+```
+
+### Press / active feedback
+
+The `press` state is active from `pointerdown` to `pointerup`, giving tactile feedback on click:
+
+```javascript
+const state = createMotionState({
+  animate: { scale: 1 },
+  hover:   { scale: 1.05 },
+  press:   { scale: 0.95 },
+})
+
+state.mount(document.querySelector(".card"))
+```
+
+### In-view reveal
+
+The `inView` state activates when the element enters the viewport. Combine it with `inViewOptions` to control margin and threshold:
+
+```javascript
+const state = createMotionState({
+  initial: { opacity: 0, y: 20 },
+  animate: { opacity: 1, y: 0 },
+  inView:  { opacity: 1, y: 0 },
+  inViewOptions: { amount: "all", once: true },
+  transition: { duration: 0.5, easing: "ease-out" },
+})
+
+state.mount(document.querySelector(".section"))
+```
+
+<Tip>
+Setting `inViewOptions.once: true` tells the gesture system to stop watching the element after it has entered the viewport for the first time, so the animation only plays on the way in.
+</Tip>
+
+---
+
+## Gesture custom events
+
+Every gesture transition dispatches a typed `CustomEvent` on the target element. You can listen to these events with `addEventListener()` just like native DOM events.
+
+| Event name | Fired when… | Event type |
+|---|---|---|
+| `motionstart` | An animation begins (any state change). | `MotionEvent` |
+| `motioncomplete` | An animation finishes. | `MotionEvent` |
+| `hoverstart` | Pointer enters the element. | `CustomPointerEvent` |
+| `hoverend` | Pointer leaves the element. | `CustomPointerEvent` |
+| `pressstart` | Element is pressed. | `CustomPointerEvent` |
+| `pressend` | Element is released. | `CustomPointerEvent` |
+| `viewenter` | Element enters the viewport. | `ViewEvent` |
+| `viewleave` | Element leaves the viewport. | `ViewEvent` |
+
+```javascript
+const button = document.querySelector(".button")
+
+button.addEventListener("hoverstart", () => {
+  console.log("Hover started")
+})
+
+button.addEventListener("motioncomplete", (event) => {
+  console.log("Animation complete, target was:", event.detail.target)
+})
+```
+
+---
+
+## Standalone `inView()`
+
+The `inView()` function is the lower-level `IntersectionObserver` helper that powers the `inView` gesture state. Use it directly when you need scroll-triggered behaviour outside the variant system — for example, lazy-loading images or triggering one-off `animate()` calls.
+
+```typescript
+import { inView } from "motion"
+
+const stop = inView(
+  elementOrSelector,
+  (entry: IntersectionObserverEntry) => {
+    // Optional: return a handler for when the element leaves
+    return (leaveEntry) => { ... }
+  },
+  options?
+)
+```
+
+### InViewOptions
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `root` | `Element \| Document` | viewport | Ancestor element used as the intersection root. |
+| `margin` | `string` | `"0px"` | CSS-style margin around the root rectangle. Use negative values to require the element to be further into the viewport. |
+| `amount` | `"any" \| "all" \| number` | `"any"` | Visibility threshold. `"any"` = any pixel visible, `"all"` = fully visible, or a `0`–`1` number. |
+
+**One-shot animate on enter:**
+
+```javascript
+import { animate, inView } from "motion"
+
+inView(".feature", ({ target }) => {
+  animate(target, { opacity: [0, 1], x: [-20, 0] }, { duration: 0.4 })
+  // Return nothing → observer stops watching this element
+})
+```
+
+**Animate in and out:**
+
+```javascript
+inView(
+  ".sidebar",
+  (entry) => {
+    animate(entry.target, { opacity: 1, x: 0 })
+    return (leave) => animate(leave.target, { opacity: 0, x: -20 })
+  },
+  { margin: "-100px 0px" }
+)
+```
+
+`inView()` returns a cleanup function. Call it to disconnect the `IntersectionObserver` entirely:
+
+```javascript
+const stop = inView(".hero", handler)
+// Later…
+stop()
+```
+
+---
+
+## Standalone `resize()`
+
+`resize()` is a thin wrapper around `ResizeObserver` (and `window` resize events) that normalises the callback signature across both element and window observations.
+
+```typescript
+import { resize } from "motion"
+
+// Observe window resize
+const stop = resize((info) => {
+  console.log(info.size.width, info.size.height)
+})
+
+// Observe a specific element
+const stop = resize(element, (info) => {
+  console.log(info.target, info.size, info.contentSize)
+})
+```
+
+The callback receives a `ResizeInfo` object:
+
+| Field | Type | Description |
+|---|---|---|
+| `target` | `Window \| Element` | The observed target. |
+| `size` | `{ width, height }` | Outer (border-box) dimensions. |
+| `contentSize` | `{ width, height }` | Inner (content-box) dimensions. |
+
+Both overloads return a cleanup function:
+
+```javascript
+const stop = resize(myPanel, ({ size }) => {
+  myPanel.style.setProperty("--panel-height", `${size.height}px`)
+})
+
+// Disconnect later
+stop()
+```
+
+---
+
+## Full example: card with hover, press, and in-view
+
+<CodeGroup>
+```html HTML
+<div class="card">
+  <h2>Hello World</h2>
+</div>
+```
+
+```javascript JavaScript
+import { createMotionState } from "motion"
+
+const card = document.querySelector(".card")
+
+const state = createMotionState({
+  initial:  { opacity: 0, y: 24, scale: 1 },
+  animate:  { opacity: 1, y: 0,  scale: 1 },
+  hover:    { scale: 1.03 },
+  press:    { scale: 0.97 },
+  inView:   { opacity: 1, y: 0 },
+  inViewOptions: { once: true },
+  transition: { duration: 0.3, easing: [0.22, 1, 0.36, 1] },
+})
+
+// Mount attaches event listeners and kicks off the initial animation.
+// The returned function removes everything when called.
+const unmount = state.mount(card)
+```
+</CodeGroup>
+
+<Note>
+The `hover` state only activates for mouse pointers — `pointerType === "mouse"`. Touch events do not trigger hover, which matches the expected behaviour on mobile devices.
+</Note>

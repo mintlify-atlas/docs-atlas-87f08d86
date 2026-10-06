@@ -1,0 +1,154 @@
+---
+title: "inView() — Trigger Animations on Viewport Visibility"
+sidebarTitle: "inView()"
+description: "Run callbacks when elements enter or leave the viewport using IntersectionObserver, with configurable thresholds, root, and margin options."
+---
+
+`inView()` wraps the browser's `IntersectionObserver` API with a simpler callback interface. When an observed element enters the viewport (or a custom root), the `onStart` callback fires with the raw `IntersectionObserverEntry`. If `onStart` returns a function, that function is used as the "on leave" handler — enabling enter/leave pairing in a single call. If `onStart` returns nothing, the element is automatically unobserved after the first intersection, making it easy to trigger one-time animations.
+
+> **Fallback behaviour:** When `IntersectionObserver` is not available (e.g. some older browsers), `inView()` returns an empty cleanup function and does not call `onStart`. No automatic fallback triggering is applied — add your own feature detection if needed.
+
+## Signature
+
+```typescript
+function inView(
+  elementOrSelector: ElementOrSelector,
+  onStart: (entry: IntersectionObserverEntry) => void | VoidFunction,
+  options?: InViewOptions
+): VoidFunction
+```
+
+## Parameters
+
+<ParamField path="elementOrSelector" type="ElementOrSelector" required>
+  The element(s) to observe. Accepts a CSS selector string, a single `Element`, an `Element[]`, or a `NodeListOf<Element>`.
+
+  ```typescript
+  type ElementOrSelector =
+    | Element
+    | Element[]
+    | NodeListOf<Element>
+    | string
+  ```
+</ParamField>
+
+<ParamField path="onStart" type="(entry: IntersectionObserverEntry) => void | VoidFunction" required>
+  Called each time an observed element enters the viewport.
+
+  - **Return `void` (or nothing):** The element is automatically unobserved after the first intersection — ideal for one-time entrance animations.
+  - **Return a `VoidFunction`:** That function becomes the "on leave" callback, called when the element exits the viewport. The element continues to be observed, enabling repeated enter/leave animations.
+
+  ```typescript
+  // One-time animation
+  onStart: (entry) => {
+    animate(entry.target, { opacity: [0, 1] })
+    // no return → unobserve after this
+  }
+
+  // Repeated enter/leave
+  onStart: (entry) => {
+    const animation = animate(entry.target, { opacity: [0, 1] })
+    return () => animate(entry.target, { opacity: [1, 0] })
+  }
+  ```
+</ParamField>
+
+<ParamField path="options" type="InViewOptions" default="{}">
+  Options forwarded to the underlying `IntersectionObserver`.
+
+  <ParamField path="root" type="Element | Document">
+    The ancestor element used as the viewport for intersection checks. Defaults to the browser viewport (`null`).
+  </ParamField>
+
+  <ParamField path="margin" type="string">
+    Margin around the root, in the same syntax as CSS `margin` (e.g. `"100px"`, `"-20% 0px"`). Expands or shrinks the effective intersection area.
+  </ParamField>
+
+  <ParamField path="amount" type='"any" | "all" | number' default='"any"'>
+    How much of the element must be visible to trigger `onStart`.
+
+    - `"any"` — fires as soon as any part of the element is visible (`threshold: 0`).
+    - `"all"` — fires only when the entire element is visible (`threshold: 1`).
+    - `number` — a custom threshold between `0` and `1`, e.g. `0.5` for 50% visibility.
+  </ParamField>
+</ParamField>
+
+---
+
+## Return Value
+
+<ResponseField name="VoidFunction" type="() => void">
+  Calling this function disconnects the `IntersectionObserver` and stops all observations started by this `inView()` call.
+</ResponseField>
+
+---
+
+## Examples
+
+<CodeGroup>
+
+```typescript Fade in on enter (one-time)
+import { animate, inView } from "motion"
+
+// Each .card fades in once when it enters the viewport
+inView(".card", ({ target }) => {
+  animate(target, { opacity: [0, 1], y: [20, 0] }, { duration: 0.5 })
+  // Returning nothing → element is unobserved after first intersection
+})
+```
+
+```typescript Enter and leave
+import { animate, inView } from "motion"
+
+inView(".section", (entry) => {
+  // Element entered
+  animate(entry.target, { opacity: [0, 1] }, { duration: 0.4 })
+
+  // Return leave handler
+  return () => {
+    animate(entry.target, { opacity: [1, 0] }, { duration: 0.2 })
+  }
+})
+```
+
+```typescript Custom threshold and margin
+import { animate, inView } from "motion"
+
+// Only trigger when the element is at least 50% visible,
+// with a 100 px top margin to pre-load slightly early
+inView(
+  ".lazy-image",
+  ({ target }) => {
+    animate(target, { scale: [0.95, 1], opacity: [0, 1] })
+  },
+  { amount: 0.5, margin: "100px 0px 0px 0px" }
+)
+```
+
+```typescript Custom root element
+import { animate, inView } from "motion"
+
+const scroller = document.querySelector("#scroller")
+
+inView(
+  ".item",
+  ({ target }) => {
+    animate(target, { x: [30, 0], opacity: [0, 1] })
+  },
+  { root: scroller, amount: "any" }
+)
+```
+
+```typescript Stop observing
+import { inView } from "motion"
+
+const stop = inView(".tracked", (entry) => {
+  console.log("Intersecting:", entry.isIntersecting)
+  return () => console.log("Left viewport")
+})
+
+// Later — disconnect the observer
+stop()
+```
+
+</CodeGroup>

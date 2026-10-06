@@ -1,0 +1,221 @@
+---
+title: "Sequencing Animations with Timeline"
+sidebarTitle: "Timeline"
+description: "Orchestrate complex, multi-element animation sequences with timeline() — including time labels, relative offsets, stagger, and full playback control."
+---
+
+When a single `animate()` call isn't enough, `timeline()` lets you compose a whole sequence of animations across multiple elements and values into one coordinated, scrub-able animation. You describe the sequence as an ordered array of segments; Motion One converts them into a single set of WAAPI keyframes and returns the familiar `AnimationControls` object.
+
+---
+
+## Basic usage
+
+```typescript
+import { timeline } from "motion"
+
+const controls = timeline(definition, options?)
+```
+
+- **`definition`** — A `TimelineDefinition`: an array of segments describing what to animate and when.
+- **`options`** — A `TimelineOptions` object (optional).
+- **Returns** — `AnimationControls`, identical to what `animate()` returns.
+
+### The simplest sequence
+
+Each segment in the definition array is a tuple of `[element, keyframes, options?]`. Segments play back-to-back by default:
+
+```javascript
+import { timeline } from "motion"
+
+timeline([
+  ["#box-1", { x: [0, 100] }],
+  ["#box-2", { x: [0, 100] }],
+  ["#box-3", { x: [0, 100] }],
+])
+```
+
+Each segment starts *after* the previous one finishes, so the three boxes animate one after another.
+
+---
+
+## TimelineDefinition
+
+```typescript
+type TimelineDefinition = TimelineSegment[]
+
+type TimelineSegment =
+  | [ElementOrSelector, MotionKeyframesDefinition]
+  | [ElementOrSelector, MotionKeyframesDefinition, AnimationListOptions]
+  | string          // Time label
+  | AnnotatedLabel  // Label with explicit time: { name, at }
+```
+
+| Part | Type | Description |
+|---|---|---|
+| `elements` | `ElementOrSelector` | A CSS selector, `Element`, `Element[]`, or `NodeList`. |
+| `keyframes` | `MotionKeyframesDefinition` | Same keyframes object as `animate()` — CSS properties and transform shortcuts. |
+| `options` | `AnimationListOptions` | Per-segment animation options. Includes `duration`, `easing`, `delay`, and the special `at` option. |
+
+---
+
+## TimelineOptions
+
+`TimelineOptions` extends `PlaybackOptions` with two extras:
+
+| Option | Type | Description |
+|---|---|---|
+| `duration` | `number` | Override the auto-calculated total duration (seconds). |
+| `defaultOptions` | `AnimationOptionsWithOverrides` | Default `duration`, `easing`, etc. applied to every segment unless overridden. |
+| …`PlaybackOptions` | | `delay`, `endDelay`, `repeat`, `direction`, `autoplay` — same as `animate()`. |
+
+```javascript
+timeline(definition, {
+  defaultOptions: { duration: 0.4, easing: "ease-out" },
+  repeat: Infinity,
+  direction: "alternate",
+})
+```
+
+---
+
+## Controlling timing with `at`
+
+Every segment can include an `at` option in its per-segment options to override when it starts. `at` accepts:
+
+| Value | Meaning |
+|---|---|
+| `number` | Absolute start time in seconds. |
+| `"<"` | Start at the same time as the *previous* segment (overlap). |
+| `"+0.2"` | Start `0.2 s` *after* the previous segment ends. |
+| `"-0.1"` | Start `0.1 s` *before* the previous segment ends. |
+| `"labelName"` | Start at the position of the named time label. |
+
+```javascript
+timeline([
+  ["#hero", { opacity: [0, 1] }, { duration: 0.5 }],
+  // Start at the same time as the previous segment
+  ["#hero", { y: [-20, 0] }, { duration: 0.5, at: "<" }],
+  // Start 0.2 s after the hero finishes
+  ["#subtitle", { opacity: [0, 1] }, { at: "+0.2" }],
+])
+```
+
+---
+
+## Time labels
+
+Insert a plain string into the definition array to mark a named point in the timeline. Subsequent segments can reference that label with `at`:
+
+```javascript
+timeline([
+  ["#header", { opacity: [0, 1] }],
+
+  // Mark this moment as "intro-done"
+  "intro-done",
+
+  ["#body", { opacity: [0, 1] }, { at: "intro-done" }],
+  ["#footer", { opacity: [0, 1] }, { at: "+0.1" }],
+])
+```
+
+You can also add a label at an explicit time using an `AnnotatedLabel` object:
+
+```javascript
+timeline([
+  { name: "halfway", at: 1.5 },
+  ["#badge", { scale: [0, 1] }, { at: "halfway" }],
+])
+```
+
+---
+
+## Using `stagger()` inside timeline
+
+Pass `stagger()` as the `delay` option inside a segment to offset each matched element in sequence:
+
+```javascript
+import { timeline, stagger } from "motion"
+
+timeline([
+  [
+    ".list-item",
+    { opacity: [0, 1], y: [20, 0] },
+    { duration: 0.4, delay: stagger(0.08) },
+  ],
+])
+```
+
+`stagger()` is an `OptionResolver<number>` — a function `(index, total) => number` — so the timeline engine calls it once per matched element and spreads the delays automatically.
+
+---
+
+## The returned `AnimationControls`
+
+`timeline()` returns the same `AnimationControls` interface as `animate()`:
+
+| Property / method | Description |
+|---|---|
+| `play()` | Resume playback. |
+| `pause()` | Pause playback. |
+| `stop()` | Stop and hold current values. |
+| `finish()` | Jump to the end and commit styles. |
+| `cancel()` | Cancel and revert to underlying styles. |
+| `currentTime` | Get/set playback position in seconds. |
+| `playbackRate` | Get/set playback speed (`1` = normal). |
+| `duration` | Total duration of the timeline in seconds (read-only). |
+| `finished` | `Promise` that resolves when playback completes. |
+
+This means you can scrub a timeline with `scroll()` just like a regular `animate()` animation:
+
+```javascript
+import { timeline, scroll } from "motion"
+
+const animation = timeline([
+  [".hero-text",  { opacity: [0, 1], y: [30, 0] }],
+  [".hero-image", { scale: [0.9, 1], opacity: [0, 1] }, { at: "<" }],
+])
+
+scroll(animation)
+```
+
+---
+
+## Complete example: staggered list reveal
+
+<CodeGroup>
+```html HTML
+<ul class="feature-list">
+  <li class="feature">Feature A</li>
+  <li class="feature">Feature B</li>
+  <li class="feature">Feature C</li>
+  <li class="feature">Feature D</li>
+</ul>
+```
+
+```javascript JavaScript
+import { timeline, stagger, inView } from "motion"
+
+inView(".feature-list", () => {
+  timeline([
+    // Fade the list wrapper in first
+    [".feature-list", { opacity: [0, 1] }, { duration: 0.3 }],
+
+    // Stagger each item up and in, starting 0.1 s after the list fades
+    [
+      ".feature",
+      { opacity: [0, 1], y: [16, 0] },
+      {
+        duration: 0.4,
+        delay: stagger(0.07, { from: "first" }),
+        at: "+0.1",
+        easing: [0.22, 1, 0.36, 1],
+      },
+    ],
+  ])
+})
+```
+</CodeGroup>
+
+<Note>
+The total duration of a `timeline()` is automatically calculated from the segments. You only need to pass `duration` in `TimelineOptions` if you want to force a specific overall length — for example, when synchronising with an external animation system.
+</Note>

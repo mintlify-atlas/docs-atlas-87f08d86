@@ -1,0 +1,214 @@
+---
+title: "Staggered Animations Across Multiple Elements"
+sidebarTitle: "Stagger"
+description: "Use the stagger() utility to add progressive delays across a list of elements, with control over start offset, origin point, and easing."
+---
+
+When you animate a group of elements it often looks better if each one starts slightly after the previous, creating a cascading wave effect. The `stagger()` utility generates a per-element delay value so you never have to calculate offsets by hand. It works anywhere Motion One accepts a `delay` — inside `animate()`, inside `timeline()` segments, and inside `createMotionState()` transitions.
+
+---
+
+## The `stagger()` function
+
+```typescript
+import { stagger } from "motion"
+
+stagger(duration?, options?): OptionResolver<number>
+```
+
+| Argument | Type | Default | Description |
+|---|---|---|---|
+| `duration` | `number` | `0.1` | The delay increment between each element, in seconds. |
+| `options` | `StaggerOptions` | `{}` | Fine-tune the origin, start offset, and easing. |
+
+`stagger()` returns an `OptionResolver<number>` — a function `(index: number, total: number) => number` that Motion One calls once for each matched element to compute its individual delay.
+
+---
+
+## StaggerOptions
+
+```typescript
+type StaggerOptions = {
+  start?: number
+  from?:  "first" | "last" | "center" | number
+  easing?: EasingFunction | Easing
+}
+```
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `start` | `number` | `0` | A base delay added to every element's calculated delay, effectively shifting the whole stagger forward in time. |
+| `from` | `"first" \| "last" \| "center" \| number` | `0` | The index (or named position) from which delays radiate. Elements closest to this point get the smallest delay. |
+| `easing` | `EasingFunction \| Easing` | — | An easing function applied to the delay distribution so the gaps between elements are not uniform. |
+
+### `from` values
+
+| Value | Meaning |
+|---|---|
+| `"first"` | Stagger from index `0` outward — same as the default `from: 0`. |
+| `"last"` | Stagger from the last element inward. |
+| `"center"` | Stagger outward from the middle element. |
+| `number` | Stagger from a specific index. |
+
+---
+
+## Using `stagger` with `animate()`
+
+Pass `stagger()` as the `delay` option to `animate()`. Motion One resolves the selector/NodeList to individual elements and calls the resolver function for each one:
+
+```javascript
+import { animate, stagger } from "motion"
+
+// Stagger 10 items with a 0.08 s gap between each
+animate(
+  ".list-item",
+  { opacity: [0, 1], y: [12, 0] },
+  { duration: 0.4, delay: stagger(0.08) }
+)
+```
+
+### Stagger from center
+
+```javascript
+animate(
+  ".icon",
+  { scale: [0, 1] },
+  {
+    duration: 0.35,
+    delay: stagger(0.06, { from: "center" }),
+    easing: [0.22, 1, 0.36, 1],
+  }
+)
+```
+
+### Stagger from last, with a start offset
+
+```javascript
+animate(
+  ".badge",
+  { opacity: [0, 1] },
+  {
+    duration: 0.3,
+    delay: stagger(0.05, { from: "last", start: 0.2 }),
+  }
+)
+```
+
+The `start: 0.2` shifts the entire stagger so the fastest element starts at `0.2 s` rather than `0 s`.
+
+---
+
+## Using `stagger` with `timeline()`
+
+`stagger()` is also valid as the `delay` option inside a `timeline()` segment. The timeline engine passes the element's index within the resolved selector set to the resolver function:
+
+```javascript
+import { timeline, stagger } from "motion"
+
+timeline([
+  // Heading appears first
+  ["h1", { opacity: [0, 1] }, { duration: 0.4 }],
+
+  // List items stagger in after the heading
+  [
+    ".item",
+    { opacity: [0, 1], x: [-16, 0] },
+    {
+      duration: 0.35,
+      delay: stagger(0.07),
+      at: "+0.1",
+    },
+  ],
+])
+```
+
+---
+
+## Easing the stagger distribution
+
+By default the delay gap between elements is linear. Pass an `easing` to `StaggerOptions` to make the items accelerate or decelerate through the stagger:
+
+```javascript
+import { animate, stagger } from "motion"
+
+// Items start slowly and come in faster — ease-in over the stagger
+animate(
+  ".card",
+  { opacity: [0, 1], y: [20, 0] },
+  {
+    duration: 0.4,
+    delay: stagger(0.1, { easing: "ease-in" }),
+  }
+)
+```
+
+The easing is applied to the *delay* distribution, not to the individual animation easing. For example with `easing: "ease-in"` and `duration: 0.1` across 6 elements, early elements have larger gaps (slow start) and later elements bunch closer together (fast end).
+
+---
+
+## Examples
+
+### Grid reveal from center
+
+```javascript
+import { animate, stagger, inView } from "motion"
+
+inView(".grid", () => {
+  animate(
+    ".grid-cell",
+    { opacity: [0, 1], scale: [0.8, 1] },
+    {
+      duration: 0.3,
+      delay: stagger(0.04, { from: "center" }),
+      easing: "ease-out",
+    }
+  )
+})
+```
+
+### Staggered exit animation
+
+```javascript
+import { animate, stagger } from "motion"
+
+async function dismissList() {
+  await animate(
+    ".notification",
+    { opacity: [1, 0], x: [0, 40] },
+    {
+      duration: 0.25,
+      delay: stagger(0.05, { from: "last" }),
+    }
+  ).finished
+
+  // All notifications have faded out
+  document.querySelector(".notification-list").remove()
+}
+```
+
+### Combined with timeline and default options
+
+```javascript
+import { timeline, stagger } from "motion"
+
+timeline(
+  [
+    [".hero",  { opacity: [0, 1] }],
+    [".items", { opacity: [0, 1], y: [10, 0] }, { delay: stagger(0.06) }],
+  ],
+  {
+    defaultOptions: { duration: 0.4, easing: "ease-out" },
+  }
+)
+```
+
+<Note>
+`stagger()` returns a plain function `(i, total) => number`, so you can also call it manually to inspect the delays it would produce:
+
+```javascript
+const resolver = stagger(0.1, { from: "center" })
+// For 5 elements:
+[0, 1, 2, 3, 4].map((i) => resolver(i, 5))
+// => [0.2, 0.1, 0, 0.1, 0.2]
+```
+</Note>

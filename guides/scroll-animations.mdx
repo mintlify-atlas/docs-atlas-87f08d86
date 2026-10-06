@@ -1,0 +1,276 @@
+---
+title: "Scroll-Linked and Scroll-Triggered Animations"
+sidebarTitle: "Scroll Animations"
+description: "Use the scroll() function to link animation progress to scroll position or trigger animations when elements enter the viewport with inView()."
+---
+
+Scroll animations come in two flavours: **scroll-linked**, where the playback progress of an animation is directly tied to how far the user has scrolled, and **scroll-triggered**, where a one-shot animation fires when an element crosses a scroll threshold. Motion One ships the `scroll()` and `inView()` functions to cover both patterns without any external dependencies.
+
+## The `scroll()` function
+
+`scroll()` listens for scroll events on a container element and either scrubs an `AnimationControls` object to the current scroll progress, or calls an `OnScroll` callback with live scroll information. It returns a cleanup function that removes all event listeners when called.
+
+```typescript
+import { scroll } from "motion"
+
+// Signature 1 – pass AnimationControls
+const stop = scroll(controls, options?)
+
+// Signature 2 – pass a callback
+const stop = scroll((info: ScrollInfo) => { ... }, options?)
+```
+
+Both overloads accept the same `ScrollOptions` object as their second argument.
+
+### ScrollOptions
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `container` | `HTMLElement` | `document.documentElement` | The scrollable container element to observe. |
+| `target` | `Element` | Same as `container` | A child element whose position drives the offset calculations. |
+| `axis` | `"x" \| "y"` | `"y"` | Which scroll axis to track. |
+| `offset` | `ScrollOffset` | — | Define where in the scroll range the animation starts and ends. |
+| `smooth` | `number` | — | A factor that smooths the scroll progress value over time. |
+
+### ScrollInfo callback
+
+When you pass a callback, it receives a `ScrollInfo` object on every scroll event:
+
+```typescript
+scroll((info) => {
+  // info.x and info.y are AxisScrollInfo objects
+  console.log(info.y.progress) // 0–1 through the scroll range
+  console.log(info.y.velocity) // px/s
+})
+```
+
+Each axis exposes:
+
+| Field | Type | Description |
+|---|---|---|
+| `current` | `number` | Current scroll position in px. |
+| `progress` | `number` | Normalised scroll progress, `0` to `1`. |
+| `scrollLength` | `number` | Total scrollable length in px. |
+| `velocity` | `number` | Scroll velocity in px/s. |
+| `offset` | `number[]` | Resolved offset array. |
+
+---
+
+## Scroll-linked animations
+
+The most powerful use of `scroll()` is driving an `AnimationControls` object returned by `animate()`. Motion One pauses the animation, sets its duration to 1 second, and maps `currentTime` to the scroll progress — so the animation plays back exactly as far as the user has scrolled.
+
+<CodeGroup>
+```html HTML
+<div id="progress-bar"></div>
+```
+
+```javascript JavaScript
+import { animate, scroll } from "motion"
+
+const progressBar = document.getElementById("progress-bar")
+
+// Create the animation but let scroll drive it
+const animation = animate(
+  progressBar,
+  { scaleX: [0, 1] },
+  { duration: 1, easing: "linear" }
+)
+
+// Link animation progress to page scroll
+const stop = scroll(animation)
+```
+</CodeGroup>
+
+### Parallax effect
+
+Animate an element at a different rate from the page scroll by targeting a specific element within the scrollable container:
+
+```javascript
+import { animate, scroll } from "motion"
+
+const hero = document.querySelector(".hero-image")
+
+scroll(
+  animate(hero, { y: ["-20%", "20%"] }, { easing: "linear" }),
+  { target: hero, offset: ["start end", "end start"] }
+)
+```
+
+---
+
+## ScrollOffset and edge definitions
+
+The `offset` option is the key to controlling *when* in the scroll range an animation plays. It is an array of `Edge | Intersection | ProgressIntersection` values.
+
+### Edge strings
+
+An `Edge` can be a named position, a CSS-like unit, or a bare number (treated as a fraction):
+
+| Value | Meaning |
+|---|---|
+| `"start"` | Beginning of the target / container |
+| `"end"` | End of the target / container |
+| `"center"` | Midpoint of the target / container |
+| `"100px"` | Absolute pixel offset |
+| `"50%"` | Percentage of element size |
+| `"0.5"` | Fraction (bare number string) |
+| `0.5` | Fraction (number) |
+
+### Intersection strings
+
+An `Intersection` is two edges separated by a space, describing the target edge and the container edge at which the offset fires: `"target-edge container-edge"`.
+
+```javascript
+// Animation starts when the top of the target reaches
+// the bottom of the container, ends when the bottom of
+// the target hits the top of the container.
+scroll(animation, {
+  target: section,
+  offset: ["start end", "end start"],
+})
+```
+
+### ProgressIntersection (preset-style)
+
+A `ProgressIntersection` is a two-element tuple `[targetProgress, containerProgress]`, where both values are `0`–`1` fractions:
+
+```javascript
+// Equivalent to ScrollOffset.Enter
+scroll(animation, {
+  target: section,
+  offset: [[0, 1], [1, 1]],
+})
+```
+
+### Built-in ScrollOffset presets
+
+Motion One ships four named offset presets for common "reveal" patterns. They are exported from `motion` as the `ScrollOffset` object:
+
+```javascript
+import { scroll, ScrollOffset } from "motion"
+```
+
+| Preset | Tuple pairs | Meaning |
+|---|---|---|
+| `ScrollOffset.Enter` | `[[0,1],[1,1]]` | From when the element starts entering until it has fully entered. |
+| `ScrollOffset.Exit` | `[[0,0],[1,0]]` | From when the element starts exiting until it has fully left. |
+| `ScrollOffset.Any` | `[[1,0],[0,1]]` | From first pixel visible to last pixel visible. |
+| `ScrollOffset.All` | `[[0,0],[1,1]]` | Only while the entire element is inside the viewport. |
+
+```javascript
+import { animate, scroll, ScrollOffset } from "motion"
+
+scroll(
+  animate(".card", { opacity: [0, 1] }, { easing: "linear" }),
+  { target: document.querySelector(".card"), offset: ScrollOffset.Enter }
+)
+```
+
+---
+
+## Scroll-triggered animations with `inView()`
+
+`inView()` uses the browser's `IntersectionObserver` API to fire a callback the moment an element scrolls into the viewport. Use it when you want a one-shot entrance animation rather than a continuously scrubbed one.
+
+```typescript
+import { inView } from "motion"
+
+const stop = inView(
+  elementOrSelector,
+  (entry) => {
+    // Called once when element enters the viewport
+    // Return a callback to be notified when it leaves
+    return (leaveEntry) => { ... }
+  },
+  options?
+)
+```
+
+### InViewOptions
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `root` | `Element \| Document` | viewport | The ancestor element used as the viewport for the observer. |
+| `margin` | `string` | `"0px"` | Margin around the root — same syntax as CSS `margin`. |
+| `amount` | `"any" \| "all" \| number` | `"any"` | How much of the element must be visible before the callback fires. `"any"` = first pixel, `"all"` = fully visible, `number` = 0–1 threshold. |
+
+### Reveal on scroll
+
+Animate a list of items as they scroll into view. If the callback returns nothing (or a non-function), the observer stops watching the element — perfect for one-shot animations.
+
+```javascript
+import { animate, inView } from "motion"
+
+inView(".card", (entry) => {
+  animate(
+    entry.target,
+    { opacity: [0, 1], y: [30, 0] },
+    { duration: 0.6, easing: [0.22, 1, 0.36, 1] }
+  )
+  // Don't return anything – the observer stops watching
+})
+```
+
+### Animate in *and* out
+
+Return a callback from the `onStart` handler and it will be called when the element leaves the viewport:
+
+```javascript
+inView(".section", (entry) => {
+  animate(entry.target, { opacity: 1 })
+
+  return (leaveEntry) => {
+    animate(leaveEntry.target, { opacity: 0 })
+  }
+})
+```
+
+---
+
+## Cleaning up
+
+Both `scroll()` and `inView()` return a `VoidFunction` cleanup function. Call it to remove all listeners and observers, for example when a component unmounts:
+
+```javascript
+const stopScroll = scroll(animation)
+const stopView = inView(".hero", onEnter)
+
+// Later…
+stopScroll()
+stopView()
+```
+
+---
+
+<Note>
+Scroll listeners registered by `scroll()` always use the `{ passive: true }` flag, so they will never block the browser's native scroll behaviour. This also means you cannot call `event.preventDefault()` inside a scroll callback.
+</Note>
+
+---
+
+## Complete example: progress bar + reveal cards
+
+```javascript
+import { animate, scroll, inView, ScrollOffset } from "motion"
+
+// 1. Reading-progress bar
+const bar = document.querySelector("#progress-bar")
+scroll(animate(bar, { scaleX: [0, 1] }, { easing: "linear" }))
+
+// 2. Reveal cards as they scroll in
+inView(".card", ({ target }) => {
+  animate(
+    target,
+    { opacity: [0, 1], y: [40, 0] },
+    { duration: 0.5, delay: 0.1, easing: "ease-out" }
+  )
+})
+
+// 3. Parallax banner
+const banner = document.querySelector(".banner")
+scroll(
+  animate(banner, { y: ["-15%", "15%"] }, { easing: "linear" }),
+  { target: banner, offset: ScrollOffset.Any }
+)
+```

@@ -1,0 +1,128 @@
+---
+title: "style — Read and Write CSS Properties and Transforms"
+sidebarTitle: "style"
+description: "Read computed styles and write inline styles on DOM elements, with built-in support for CSS variables and Motion One's transform shorthand properties."
+---
+
+`style` is a small utility object with two methods — `get` and `set` — that abstract the differences between standard CSS properties, CSS custom properties (variables), and Motion One's transform shorthand values (`x`, `y`, `rotateZ`, `scaleX`, etc.). It is used internally by `animate()` to read initial values and commit final keyframes, but it is also a useful standalone helper when you need to synchronise styles without starting a full animation.
+
+## API
+
+### `style.get`
+
+```typescript
+style.get(element: Element, name: string): string | undefined
+```
+
+Reads the current value of a CSS property or CSS variable from an element.
+
+- **Standard properties** — returns `getComputedStyle(element)[name]`.
+- **CSS variables** — returns `element.style.getPropertyValue(name)`.
+- **Transform shorthands** — returns the current value tracked by Motion One (e.g. `x`, `rotateZ`), falling back to the transform definition's `initialValue` when none has been set.
+- Returns `undefined` when no value is found and there is no initial value defined.
+
+### `style.set`
+
+```typescript
+style.set(element: Element, name: string, value: string | number): void
+```
+
+Writes a value to an element's inline styles.
+
+- **Standard properties** — sets `element.style[name] = value`.
+- **CSS variables** — calls `element.style.setProperty(name, value)`.
+- **Transform shorthands** — maps the shorthand name to its underlying CSS variable and updates `element.style` accordingly.
+
+---
+
+## Parameters
+
+<ParamField path="element" type="Element" required>
+  The DOM element to read from or write to.
+</ParamField>
+
+<ParamField path="name" type="string" required>
+  The property name. Can be:
+
+  - A CSS property in camelCase — e.g. `"opacity"`, `"backgroundColor"`, `"borderRadius"`.
+  - A CSS custom property — e.g. `"--brand-color"`, `"--offset-y"`.
+  - A Motion One transform shorthand — `"x"`, `"y"`, `"z"`, `"rotateX"`, `"rotateY"`, `"rotateZ"`, `"scaleX"`, `"scaleY"`, `"scaleZ"`, `"skewX"`, `"skewY"`.
+</ParamField>
+
+<ParamField path="value" type="string | number">
+  *(set only)* The value to write. Numbers are accepted for transform shorthands and are converted to the appropriate unit automatically.
+</ParamField>
+
+---
+
+## Return Value
+
+<ResponseField name="style.get → string | undefined" type="string | undefined">
+  The current value of the property as a string, or `undefined` if unavailable.
+</ResponseField>
+
+<ResponseField name="style.set → void" type="void">
+  No return value.
+</ResponseField>
+
+---
+
+## Examples
+
+<CodeGroup>
+
+```typescript Read a standard CSS property
+import { style } from "motion"
+
+const opacity = style.get(document.querySelector("#box"), "opacity")
+console.log(opacity) // e.g. "1"
+```
+
+```typescript Write a standard CSS property
+import { style } from "motion"
+
+const el = document.querySelector("#box")
+style.set(el, "opacity", "0.5")
+style.set(el, "backgroundColor", "red")
+```
+
+```typescript CSS variables
+import { style } from "motion"
+
+const root = document.documentElement
+
+// Read a CSS variable
+const hue = style.get(root, "--primary-hue")
+console.log(hue) // e.g. "220"
+
+// Write a CSS variable
+style.set(root, "--primary-hue", "280")
+```
+
+```typescript Transform shorthands
+import { style } from "motion"
+
+const card = document.querySelector("#card")
+
+// Read individual transform components
+const currentX = style.get(card, "x")      // e.g. "0px"
+const currentRot = style.get(card, "rotateZ") // e.g. "0deg"
+
+// Write individual transform components
+style.set(card, "x", 100)       // sets --motion-translateX
+style.set(card, "rotateZ", 45)  // sets --motion-rotateZ
+```
+
+```typescript Sync before animating
+import { animate, style } from "motion"
+
+const el = document.querySelector("#pill")
+
+// Read the current translateX before driving it with an animation
+const startX = parseFloat(style.get(el, "x") ?? "0")
+console.log(`Starting from x=${startX}`)
+
+animate(el, { x: [startX, startX + 200] }, { duration: 0.6 })
+```
+
+</CodeGroup>

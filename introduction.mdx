@@ -1,0 +1,149 @@
+---
+title: "Motion One: Web Animations API Library for the DOM"
+sidebarTitle: "Introduction"
+description: "Motion One is a tiny animation library built on the Web Animations API — hardware-accelerated, tree-shakeable, and framework-agnostic."
+---
+
+Motion One is a lightweight JavaScript animation library that leverages the browser-native [Web Animations API (WAAPI)](https://developer.mozilla.org/en-US/docs/Web/API/Web_Animations_API) to deliver smooth, hardware-accelerated animations with minimal overhead. Rather than reimplementing animation logic in JavaScript, Motion One delegates timing and rendering to the browser itself — resulting in buttery-smooth 60 fps animations that don't block the main thread, even when your page is doing heavy work.
+
+## What is Motion One?
+
+Motion One (`motion` on npm) is a DOM-focused animation library authored by Matt Perry. It wraps the Web Animations API with a clean, ergonomic interface, adding support for features the raw WAAPI lacks: spring and glide physics easings, per-property animation options, staggering across lists of elements, scroll- and resize-driven animations, and a keyframe timeline sequencer.
+
+Because Motion One sits directly on top of native browser APIs, animations run off-thread wherever the browser supports it. There is no virtual DOM diffing, no JavaScript-driven `requestAnimationFrame` loop for standard keyframe animations, and no style recalculation on every tick — just the browser doing what it does best.
+
+<Note>
+  Motion One is not a React library. It ships framework-agnostic DOM utilities.
+  Framework-specific bindings (e.g. for Solid, Vue, or Svelte) consume the same
+  `motion` package and build on top of `@motionone/dom`.
+</Note>
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="Tiny Bundle" icon="feather">
+    The `motion` package is under 18 kB minified and gzipped for the full
+    feature set. Tree-shaking further reduces this — import only what you use.
+  </Card>
+  <Card title="WAAPI-Powered" icon="bolt">
+    Animations run natively in the browser via the Web Animations API, enabling
+    GPU-accelerated transforms and opacity changes that stay off the main thread.
+  </Card>
+  <Card title="Physics Easings" icon="wave-sine">
+    `spring()` and `glide()` generators produce natural, physics-based motion
+    without any numerical simulation on the JavaScript side.
+  </Card>
+  <Card title="Timeline Sequencer" icon="timeline">
+    The `timeline()` function lets you compose complex, multi-element animation
+    sequences with absolute and relative timing using a single readable array.
+  </Card>
+  <Card title="Scroll & Resize" icon="arrows-up-down">
+    Built-in `scroll()`, `inView()`, and `resize()` utilities hook into
+    `IntersectionObserver`, `ResizeObserver`, and `ScrollTimeline` for
+    scroll-linked and reactive animations.
+  </Card>
+  <Card title="Stagger" icon="list">
+    The `stagger()` helper automatically offsets animation delays across a list
+    of elements, creating cascading entrance effects with a single line.
+  </Card>
+  <Card title="Full TypeScript Support" icon="code">
+    Every public API ships with hand-authored TypeScript declarations. No
+    `@types/` package needed.
+  </Card>
+  <Card title="Zero Dependencies" icon="box">
+    The `motion` package only depends on its own `@motionone/*` scoped packages.
+    No external runtime dependencies to audit or update.
+  </Card>
+</CardGroup>
+
+## Package Structure
+
+The npm ecosystem for Motion One is split into a single convenience package and a set of focused scoped packages.
+
+### `motion` — the recommended entry point
+
+```bash
+npm install motion
+```
+
+This is the package most developers should install. It re-exports everything from `@motionone/dom` and `@motionone/types`, and provides an enhanced `animate` function that supports both DOM element animations and progress-function animations.
+
+### `@motionone/*` scoped packages
+
+The monorepo publishes each concern as its own package. You rarely need to reach for these directly, but they are useful when building framework integrations or when you want the smallest possible bundle.
+
+| Package | Description |
+|---|---|
+| `@motionone/dom` | Core DOM animation functions (`animate`, `timeline`, `stagger`, `spring`, `glide`, `style`, `inView`, `scroll`, `resize`) |
+| `@motionone/animation` | Semi-polyfill for the WAAPI `Animation` interface, enabling numeric animations in non-browser environments |
+| `@motionone/types` | Shared TypeScript types and interfaces (`AnimationControls`, `AnimationOptions`, `Easing`, etc.) |
+| `@motionone/generators` | Physics animation generators (`spring`, `glide`) for use outside a DOM context |
+| `@motionone/easing` | Standalone easing utilities |
+| `@motionone/utils` | Internal utility functions shared across the monorepo |
+
+<Tip>
+  When writing a framework integration or a Node.js test environment, import
+  from `@motionone/animation` directly. It provides an `Animation` class that
+  polyfills WAAPI for runtimes without a browser.
+</Tip>
+
+## Public Exports
+
+The `motion` package exports the following public API surface (all originating from `@motionone/dom` and `@motionone/types`, plus the overloaded `animate`):
+
+**Animation**
+- `animate` — animate one or more DOM elements, or drive a progress function
+- `animateStyle` — lower-level single-element, single-property animation
+- `createAnimate` — factory that produces an `animate` function with an optional WAAPI polyfill
+- `timeline` — sequence multi-step, multi-element animations
+- `style` — read and write element styles in a transform-aware way
+
+**Easing & Physics**
+- `spring` — spring physics easing generator
+- `glide` — momentum/glide easing generator
+- `stagger` — stagger delay resolver for lists
+
+**Gestures & Observers**
+- `inView` — trigger callbacks when elements enter/leave the viewport
+- `scroll` — scroll-linked animation progress
+- `resize` — element and window resize callbacks
+
+**Utilities**
+- `withControls` — wraps animation factories in an `AnimationControls` object
+- `getAnimationData` — retrieve cached animation metadata for an element
+- `getStyleName` — resolve a Motion property name to its CSS equivalent
+- `createMotionState` / `mountedStates` — state machine utilities for framework integrations
+- `createStyles` / `createStyleString` — generate style objects and strings from keyframe definitions
+- `ScrollOffset` — preset scroll offset constants
+
+**Types** (`@motionone/types`)
+- `AnimationControls`, `BasicAnimationControls`
+- `AnimationOptions`, `KeyframeOptions`, `PlaybackOptions`
+- `MotionKeyframesDefinition`, `AnimationOptionsWithOverrides`
+- `Easing`, `EasingGenerator`, `EasingFunction`, `BezierDefinition`
+- `StaggerOptions`, `SpringOptions`, `GlideOptions`, `TimelineOptions`
+- `PlayState`, `ProgressFunction`, `MotionValue`
+
+## Browser Support
+
+Motion One targets all modern browsers. The Web Animations API has broad support across Chrome, Firefox, Safari (14+), and Edge.
+
+| Feature | Chrome | Firefox | Safari | Edge |
+|---|---|---|---|---|
+| Core `animate` | 84+ | 75+ | 14+ | 84+ |
+| `scroll()` timeline | 115+ | — | — | 115+ |
+| `inView` | 58+ | 55+ | 12.1+ | 79+ |
+| `resize` | 64+ | 69+ | 13.1+ | 79+ |
+
+<Note>
+  Motion One includes an internal polyfill path for WebKit-based browsers.
+  Hardware-accelerated (compositor-thread) animations are disabled by default
+  in WebKit due to known timing bugs, but can be enabled per-animation with
+  `allowWebkitAcceleration: true` after thorough testing.
+</Note>
+
+<Tip>
+  For browsers that do not support the Web Animations API at all, Motion One
+  can accept a WAAPI polyfill via `createAnimate(AnimatePolyfill)` — your
+  animations will still work, just without native acceleration.
+</Tip>

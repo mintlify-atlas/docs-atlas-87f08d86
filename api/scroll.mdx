@@ -1,0 +1,219 @@
+---
+title: "scroll() — Scroll-Linked Animations and Progress"
+sidebarTitle: "scroll()"
+description: "Link animations or callbacks to scroll position for progress bars, parallax effects, and element-based scroll tracking with automatic cleanup."
+---
+
+`scroll()` connects scroll position to either an `AnimationControls` object (driving its progress directly) or a plain callback that receives detailed per-axis scroll information. It listens on a configurable container element, optionally tracks a specific target element within that container, and supports both `x` and `y` axes. Calling the returned cleanup function removes all listeners.
+
+## Signatures
+
+```typescript
+// Drive an AnimationControls with scroll progress
+function scroll(
+  controls: AnimationControls,
+  options?: ScrollOptions
+): VoidFunction
+
+// Call a callback on every scroll update
+function scroll(
+  onScroll: OnScroll,
+  options?: ScrollOptions
+): VoidFunction
+```
+
+## Parameters
+
+<ParamField path="controls" type="AnimationControls">
+  An animation created by `animate()` or `timeline()`. Its `currentTime` will be set to match scroll progress — `0` at the start offset and `animation.duration` at the end offset. Use this overload for declarative scroll-linked animations.
+</ParamField>
+
+<ParamField path="onScroll" type="OnScroll">
+  A callback invoked on every scroll event and on the first animation frame after setup.
+
+  ```typescript
+  type OnScroll = (info: ScrollInfo) => void
+  ```
+
+  Receives a `ScrollInfo` object — see [ScrollInfo](#scrollinfo) below.
+</ParamField>
+
+<ParamField path="options" type="ScrollOptions">
+  Configuration for the scroll listener.
+
+  <ParamField path="container" type="HTMLElement" default="document.documentElement">
+    The scrollable container element to observe. Defaults to the document root (`<html>`).
+  </ParamField>
+
+  <ParamField path="target" type="Element">
+    An element within the container whose position determines the scroll progress. When omitted, progress is based on the container's own scroll position.
+  </ParamField>
+
+  <ParamField path="axis" type='"x" | "y"' default='"y"'>
+    The scroll axis to track.
+  </ParamField>
+
+  <ParamField path="offset" type="ScrollOffset">
+    Defines the start and end scroll positions (relative to `target`) at which progress goes from `0` to `1`.
+
+    ```typescript
+    type ScrollOffset = Array<Edge | Intersection | ProgressIntersection>
+
+    // Edge examples
+    type NamedEdges = "start" | "end" | "center"
+    type EdgeUnit  = `${number}${"px" | "vw" | "vh" | "%"}`
+    type Edge      = NamedEdges | EdgeUnit | `${number}` | number
+
+    // "target-edge container-edge"
+    type Intersection = `${Edge} ${Edge}`
+
+    // Numeric progress pair [0..1, 0..1]
+    type ProgressIntersection = [number, number]
+    ```
+
+    Example: `["start end", "end start"]` — animation starts when the target's top edge reaches the container's bottom edge, and ends when the target's bottom edge reaches the container's top edge.
+  </ParamField>
+
+  <ParamField path="smooth" type="number">
+    A smoothing factor in milliseconds. When set, scroll progress is interpolated toward the actual scroll value instead of snapping instantly, creating an eased-lag effect.
+  </ParamField>
+</ParamField>
+
+---
+
+## ScrollInfo
+
+The `onScroll` callback receives a `ScrollInfo` object with per-axis data:
+
+```typescript
+interface ScrollInfo {
+  time: number
+  x: AxisScrollInfo
+  y: AxisScrollInfo
+}
+
+interface AxisScrollInfo {
+  current: number       // current scroll position in px
+  offset: number[]      // resolved offset positions in px
+  progress: number      // 0–1 progress between offsets
+  scrollLength: number  // total scrollable distance in px
+  velocity: number      // scroll velocity in px/s
+  targetOffset: number
+  targetLength: number
+  containerLength: number
+}
+```
+
+<ResponseField name="ScrollInfo" type="object">
+  <ResponseField name="time" type="number">
+    The `performance.now()` timestamp of the scroll event.
+  </ResponseField>
+  <ResponseField name="x" type="AxisScrollInfo">
+    Horizontal scroll axis data.
+  </ResponseField>
+  <ResponseField name="y" type="AxisScrollInfo">
+    Vertical scroll axis data.
+  </ResponseField>
+</ResponseField>
+
+<ResponseField name="AxisScrollInfo" type="object">
+  <ResponseField name="current" type="number">Current scroll offset in pixels.</ResponseField>
+  <ResponseField name="progress" type="number">Scroll progress from `0` (start offset) to `1` (end offset).</ResponseField>
+  <ResponseField name="scrollLength" type="number">Total scrollable distance in pixels.</ResponseField>
+  <ResponseField name="velocity" type="number">Current scroll velocity in pixels per second.</ResponseField>
+  <ResponseField name="offset" type="number[]">Resolved start/end positions in pixels derived from the `offset` option.</ResponseField>
+</ResponseField>
+
+---
+
+## Return Value
+
+<ResponseField name="VoidFunction" type="() => void">
+  A cleanup function. Call it to remove scroll and resize listeners and stop the associated animation (when using the `AnimationControls` overload).
+</ResponseField>
+
+---
+
+## Examples
+
+<CodeGroup>
+
+```typescript Progress bar
+import { animate, scroll } from "motion"
+
+// Animate a progress bar from 0% to 100% as the page scrolls
+const animation = animate(
+  "#progress-bar",
+  { scaleX: [0, 1] },
+  { duration: 1, easing: "linear" }
+)
+
+const cleanup = scroll(animation)
+
+// Call cleanup() to remove the listener when done
+```
+
+```typescript Element scroll tracking
+import { animate, scroll } from "motion"
+
+// Fade in an element as it scrolls into and through the viewport
+const card = document.querySelector("#card")
+const animation = animate(card, { opacity: [0, 1] }, { duration: 1 })
+
+scroll(animation, {
+  target: card,
+  offset: ["start end", "end start"],
+})
+```
+
+```typescript Callback with ScrollInfo
+import { scroll } from "motion"
+
+scroll(({ y }) => {
+  console.log(`Scroll progress: ${(y.progress * 100).toFixed(1)}%`)
+  console.log(`Velocity: ${y.velocity.toFixed(0)} px/s`)
+})
+```
+
+```typescript Custom container
+import { animate, scroll } from "motion"
+
+const container = document.querySelector("#sidebar")
+const animation = animate(
+  "#sidebar-thumb",
+  { y: [0, 200] },
+  { duration: 1, easing: "linear" }
+)
+
+scroll(animation, { container })
+```
+
+```typescript Horizontal scroll
+import { animate, scroll } from "motion"
+
+const strip = document.querySelector("#card-strip")
+const animation = animate(
+  "#highlight",
+  { opacity: [0, 1] },
+  { duration: 1 }
+)
+
+scroll(animation, {
+  container: strip,
+  axis: "x",
+  offset: ["start end", "end start"],
+})
+```
+
+```typescript Cleanup on unmount
+import { scroll } from "motion"
+
+const stop = scroll(({ y }) => {
+  document.querySelector("#indicator").style.opacity = String(y.progress)
+})
+
+// Later — e.g. in a component teardown
+stop()
+```
+
+</CodeGroup>

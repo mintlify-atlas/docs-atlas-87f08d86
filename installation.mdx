@@ -1,0 +1,203 @@
+---
+title: "How to Install Motion One in Any JavaScript Project"
+sidebarTitle: "Installation"
+description: "Add Motion One via npm, yarn, pnpm, or a CDN ESM import. Learn about individual scoped packages, built-in TypeScript types, and bundle size."
+---
+
+Motion One is published as the `motion` package on npm (version 10.x). It has no external runtime dependencies — only its own `@motionone/*` scoped packages — so installation is straightforward regardless of your toolchain. This page covers every installation path from package managers to CDN ESM imports, and explains when you might reach for a scoped package directly.
+
+## Package Manager Installation
+
+<CodeGroup>
+
+```bash npm
+npm install motion
+```
+
+```bash yarn
+yarn add motion
+```
+
+```bash pnpm
+pnpm add motion
+```
+
+</CodeGroup>
+
+After installation, import what you need from `'motion'`:
+
+```javascript
+import { animate, timeline, stagger, spring, inView, scroll } from 'motion'
+```
+
+All exports are tree-shakeable. Bundlers like Vite, Rollup, esbuild, and webpack 5 will automatically drop anything you don't import.
+
+<Note>
+  The package ships both an ES module build (`dist/main.es.js`) and a CommonJS
+  build (`dist/main.cjs.js`). Node-based build tools pick the right format
+  automatically via the `module` and `main` fields in `package.json`.
+</Note>
+
+## CDN / ESM Import (no build step)
+
+If you are working on a prototype, a CodePen, or any page without a bundler, you can load Motion One directly from a CDN as an ES module.
+
+<CodeGroup>
+
+```html Skypack
+<script type="module">
+  import { animate } from 'https://cdn.skypack.dev/motion'
+
+  animate('.box', { rotate: 360 }, { duration: 1, easing: 'ease-in-out' })
+</script>
+```
+
+```html esm.sh
+<script type="module">
+  import { animate } from 'https://esm.sh/motion'
+
+  animate('.box', { rotate: 360 }, { duration: 1, easing: 'ease-in-out' })
+</script>
+```
+
+```html unpkg (ESM)
+<script type="module">
+  import { animate } from 'https://unpkg.com/motion/dist/main.es.js'
+
+  animate('.box', { rotate: 360 }, { duration: 1, easing: 'ease-in-out' })
+</script>
+```
+
+</CodeGroup>
+
+<Tip>
+  For production sites that use a CDN import, pin to a specific version to
+  avoid unexpected breaking changes:
+  `https://cdn.skypack.dev/motion@10.18.0`
+</Tip>
+
+<Warning>
+  CDN imports bypass your bundler's tree-shaking. The full `motion` bundle will
+  be loaded, even if you only use `animate`. For performance-critical production
+  sites, prefer a build-tool installation.
+</Warning>
+
+## Individual Scoped Packages
+
+The `motion` package is a convenience wrapper. For advanced use cases — framework integrations, Node.js environments, or aggressive bundle optimisation — you can install individual `@motionone/*` packages directly.
+
+### `@motionone/dom`
+
+```bash
+npm install @motionone/dom
+```
+
+The full DOM animation library, excluding the progress-function overload of `animate`. This is what `motion` re-exports. Use this when you are building a framework integration (e.g. a Solid or Vue binding) and want to control exactly what gets bundled.
+
+```javascript
+import { animate, timeline, stagger, spring, inView, scroll, style } from '@motionone/dom'
+```
+
+### `@motionone/animation`
+
+```bash
+npm install @motionone/animation
+```
+
+A semi-polyfill for the WAAPI `Animation` interface. Provides an `Animation` class that drives numeric animations (no DOM required). Useful for:
+
+- **Testing** — animate values in a Node.js/jsdom environment without a real browser
+- **Custom renderers** — drive values on Canvas, WebGL, or Three.js objects
+- **WAAPI polyfilling** — pass it to `createAnimate` for browsers that lack WAAPI support
+
+```javascript
+import { Animation } from '@motionone/animation'
+import { createAnimate } from '@motionone/dom'
+
+// Create an animate function that uses the polyfill
+const animate = createAnimate(Animation)
+```
+
+### `@motionone/types`
+
+```bash
+npm install @motionone/types
+```
+
+Shared TypeScript type declarations used across the monorepo. Install this if you are writing a library that accepts Motion One types (e.g. `AnimationControls` or `AnimationOptions`) in its own public API without depending on `@motionone/dom`.
+
+```typescript
+import type { AnimationControls, AnimationOptions, Easing } from '@motionone/types'
+```
+
+### `@motionone/generators`
+
+```bash
+npm install @motionone/generators
+```
+
+Pure physics animation generators (`spring`, `glide`) that produce frame-by-frame values from a `(t: number) => AnimationGeneratorState` function. These are the underlying generators consumed by the `spring()` and `glide()` easings in `@motionone/dom`. Use them directly when you need physics values outside a DOM context.
+
+### `@motionone/easing`
+
+```bash
+npm install @motionone/easing
+```
+
+Standalone easing utility functions. Useful when you need easing curves for scroll interpolation, Canvas rendering, or other non-DOM animation contexts.
+
+### `@motionone/utils`
+
+```bash
+npm install @motionone/utils
+```
+
+Internal utility functions shared across the `@motionone/*` monorepo (math helpers, type guards, defaults). Not intended as a public API, but available if you need the same utilities in a custom integration.
+
+## TypeScript Support
+
+Motion One is written in TypeScript and ships its own type declarations. No `@types/motion` package is needed.
+
+```typescript
+import { animate } from 'motion'
+import type {
+  AnimationControls,
+  AnimationOptions,
+  MotionKeyframesDefinition,
+  Easing,
+  SpringOptions,
+  GlideOptions,
+  StaggerOptions,
+} from 'motion'
+
+const controls: AnimationControls = animate(
+  '.hero',
+  { opacity: [0, 1], y: [24, 0] } satisfies MotionKeyframesDefinition,
+  { duration: 0.5, easing: 'ease-out' } satisfies AnimationOptions
+)
+```
+
+Type declarations are located at `types/index.d.ts` inside the installed package, wired up via the `"types"` field in `package.json`. All modern IDEs (VS Code, WebStorm, Neovim with LSP) pick them up automatically.
+
+## Bundle Size
+
+Motion One is designed to stay tiny. The following figures are approximate minified + gzipped sizes for common import patterns (measured from the `motion` package):
+
+| Import | Approx. size (min+gz) |
+|---|---|
+| `animate` only | ~7 kB |
+| `animate` + `timeline` | ~10 kB |
+| `animate` + `timeline` + `spring` + `stagger` | ~13 kB |
+| Full `motion` package (all exports) | ~18 kB |
+
+<Tip>
+  Because the package sets `"sideEffects": false` in its `package.json`,
+  bundlers can tree-shake aggressively. Import only the functions you use and
+  your production bundle will be as small as possible.
+</Tip>
+
+<Note>
+  The `@motionone/animation` polyfill adds a small additional cost if you use
+  `createAnimate` with it. For most modern-browser-only projects, the native
+  WAAPI path incurs zero polyfill overhead.
+</Note>

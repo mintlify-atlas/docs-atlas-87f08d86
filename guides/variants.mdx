@@ -1,0 +1,227 @@
+---
+title: "Declarative Animations with Variants"
+sidebarTitle: "Variants"
+description: "Use createMotionState() to declare named animation states, propagate variants through a component tree, and respond to gesture and lifecycle events."
+---
+
+Variants let you describe animations as named states — `initial`, `animate`, `hover`, `press`, `inView` — rather than writing imperative `animate()` calls. `createMotionState()` is the low-level primitive that powers this system. It tracks which states are active, resolves the correct target values, and runs the animations for you.
+
+<Note>
+`createMotionState()` is the foundational API used internally by Motion One's framework integrations (Solid, Vue, Angular, Web Components). If you are using one of those packages you will normally interact with their higher-level APIs instead. Use `createMotionState()` directly when building your own integration or authoring plain JavaScript.
+</Note>
+
+---
+
+## Creating a motion state
+
+```typescript
+import { createMotionState } from "motion"
+
+const state = createMotionState(options?, parent?)
+```
+
+| Argument | Type | Description |
+|---|---|---|
+| `options` | `Options` | Initial configuration — see below. |
+| `parent` | `MotionState` | Optional parent state for context propagation. |
+
+### The `Options` interface
+
+```typescript
+interface Options {
+  initial?:      false | VariantDefinition
+  animate?:      VariantDefinition
+  inView?:       VariantDefinition
+  hover?:        VariantDefinition
+  press?:        VariantDefinition
+  variants?:     Variants
+  transition?:   AnimationOptionsWithOverrides
+  inViewOptions?: InViewOptions & { once?: boolean }
+}
+```
+
+| Option | Description |
+|---|---|
+| `initial` | Styles applied instantly when the element mounts. Set to `false` to skip the initial state and use `animate` as the starting point instead. |
+| `animate` | The default resting state that is always active. |
+| `hover` | Styles applied while a mouse pointer is over the element. |
+| `press` | Styles applied while the element is being pressed. |
+| `inView` | Styles applied while the element is inside the viewport. |
+| `variants` | A map of named variant definitions that `initial`, `animate`, etc. can reference by string. |
+| `transition` | Default transition options shared by all state changes. |
+| `inViewOptions` | Options forwarded to the `IntersectionObserver` — `root`, `margin`, `amount`, and `once`. |
+
+---
+
+## Variants map
+
+Instead of repeating keyframes inline, define them once in `variants` and reference them by name:
+
+```javascript
+const state = createMotionState({
+  initial:  "hidden",
+  animate:  "visible",
+  hover:    "hovered",
+  variants: {
+    hidden:  { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0,  transition: { duration: 0.4 } },
+    hovered: { scale: 1.05,       transition: { duration: 0.2 } },
+  },
+})
+```
+
+A `Variant` is a `MotionKeyframesDefinition` (the same keyframes object used by `animate()`) plus an optional `transition` property that overrides per-variant timing:
+
+```typescript
+type Variant = MotionKeyframesDefinition & {
+  transition?: AnimationOptionsWithOverrides
+}
+```
+
+---
+
+## Mounting and the lifecycle
+
+A `MotionState` is created independently of any DOM element. You associate it with an element by calling `mount()`:
+
+```javascript
+const cleanup = state.mount(element)
+```
+
+`mount()` does three things:
+
+1. Stores the element reference and registers it in the global `mountedStates` map.
+2. Attaches gesture event listeners for any active `hover`, `press`, or `inView` states.
+3. Returns a **cleanup function** that removes all listeners and cancels any pending animations.
+
+Always call the cleanup function when the element is removed from the DOM:
+
+```javascript
+const element = document.querySelector(".card")
+const state = createMotionState({ animate: { opacity: 1 } })
+
+const cleanup = state.mount(element)
+
+// When the component/element is destroyed:
+cleanup()
+```
+
+---
+
+## Updating options at runtime
+
+Call `state.update(newOptions)` to replace the options object after mounting. The state will diff the old and new targets and animate only the values that have changed:
+
+```javascript
+// Initial
+const state = createMotionState({ animate: { opacity: 1, scale: 1 } })
+state.mount(element)
+
+// Later – change the animate target
+state.update({ animate: { opacity: 0.5, scale: 0.9 } })
+```
+
+---
+
+## Context propagation
+
+When a `parent` state is passed to `createMotionState()`, variant *names* flow down from parent to child automatically. This lets you trigger child animations by changing the parent's state — the same pattern used by Framer Motion's `whileHover` prop propagation.
+
+```javascript
+// Parent state uses variant names
+const parentState = createMotionState({
+  animate: "rest",
+  hover:   "hovered",
+  variants: {
+    rest:    { opacity: 1 },
+    hovered: { opacity: 1 },
+  },
+})
+
+// Child inherits the variant name "hovered" from the parent context
+const childState = createMotionState(
+  {
+    variants: {
+      rest:    { scale: 1 },
+      hovered: { scale: 1.08 },
+    },
+  },
+  parentState // <-- pass parent
+)
+
+parentState.mount(cardElement)
+childState.mount(iconElement)
+```
+
+Now when the card is hovered, both the card and the icon respond — without the icon needing its own `hover` listener.
+
+---
+
+## Motion events
+
+Every state transition dispatches typed `CustomEvent`s on the element. Subscribe with standard `addEventListener`:
+
+| Event | Payload | Fired when… |
+|---|---|---|
+| `motionstart` | `{ target: Variant }` | An animation begins. |
+| `motioncomplete` | `{ target: Variant }` | An animation finishes. |
+| `hoverstart` | `{ originalEvent: PointerEvent }` | Pointer enters the element. |
+| `hoverend` | `{ originalEvent: PointerEvent }` | Pointer leaves. |
+| `pressstart` | `{ originalEvent: PointerEvent }` | Element is pressed. |
+| `pressend` | `{ originalEvent: PointerEvent }` | Element is released. |
+| `viewenter` | `{ originalEntry: IntersectionObserverEntry }` | Element enters the viewport. |
+| `viewleave` | `{ originalEntry: IntersectionObserverEntry }` | Element leaves the viewport. |
+
+```javascript
+element.addEventListener("motionstart", (event) => {
+  console.log("Animating to", event.detail.target)
+})
+
+element.addEventListener("motioncomplete", () => {
+  console.log("Animation finished")
+})
+```
+
+---
+
+## Full example: button with hover and press
+
+<CodeGroup>
+```html HTML
+<button class="btn">Click me</button>
+```
+
+```javascript JavaScript
+import { createMotionState } from "motion"
+
+const btn = document.querySelector(".btn")
+
+const state = createMotionState({
+  // Styles to apply instantly on mount
+  initial: { scale: 1, background: "#3b82f6" },
+
+  // Default resting state
+  animate: { scale: 1, background: "#3b82f6" },
+
+  // While the mouse is over the button
+  hover: { background: "#2563eb" },
+
+  // While the button is being pressed
+  press: { scale: 0.95 },
+
+  // Shared transition for all state changes
+  transition: { duration: 0.15, easing: "ease-out" },
+})
+
+const cleanup = state.mount(btn)
+
+// Log every completed animation
+btn.addEventListener("motioncomplete", (e) => {
+  console.log("Done:", e.detail.target)
+})
+```
+</CodeGroup>
+
+<Tip>
+State priority is (highest to lowest): `press` → `inView` → `hover` → `animate` → `initial`. If both `hover` and `press` define the same property, the `press` value wins while the element is being pressed.
+</Tip>
