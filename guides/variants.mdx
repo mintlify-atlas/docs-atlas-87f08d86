@@ -1,5 +1,5 @@
 ---
-title: "Declarative Animations with Variants"
+title: "Declarative Animation States and Variants with Motion One"
 sidebarTitle: "Variants"
 description: "Use createMotionState() to declare named animation states, propagate variants through a component tree, and respond to gesture and lifecycle events."
 ---
@@ -120,6 +120,24 @@ state.mount(element)
 // Later – change the animate target
 state.update({ animate: { opacity: 0.5, scale: 0.9 } })
 ```
+
+---
+
+## MotionState methods reference
+
+The `MotionState` object returned by `createMotionState()` exposes the following methods:
+
+| Method | Signature | Description |
+|---|---|---|
+| `mount` | `(element: Element) => () => void` | Associates the state with a DOM element, attaches gesture listeners, and returns a cleanup function. |
+| `update` | `(options: Options) => void` | Replaces the options object and schedules a re-evaluation of animated values. |
+| `setActive` | `(type: string, isActive: boolean) => void` | Manually activate or deactivate a named state type (e.g. `"hover"`, `"press"`). |
+| `getTarget` | `() => MotionKeyframes` | Returns the current resolved animation target (merged from all active states). |
+| `getOptions` | `() => Options` | Returns the current options object. |
+| `getContext` | `() => MotionStateContext` | Returns the context object used for variant name propagation to child states. |
+| `getDepth` | `() => number` | Returns the depth of this state in the motion state tree (0 for root states). |
+| `isMounted` | `() => boolean` | Returns `true` if `mount()` has been called with a valid element. |
+| `animateUpdates` | `() => Generator<void>` | Internal generator that performs the batched DOM read/write cycle for animations. |
 
 ---
 

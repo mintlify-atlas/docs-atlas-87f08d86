@@ -144,7 +144,7 @@ Pure physics animation generators (`spring`, `glide`) that produce frame-by-fram
 npm install @motionone/easing
 ```
 
-Standalone easing utility functions. Useful when you need easing curves for scroll interpolation, Canvas rendering, or other non-DOM animation contexts.
+Low-level easing primitives used internally by `@motionone/dom`. Exports `cubicBezier` and `steps` — the underlying implementations behind CSS cubic-bezier and stepped easing. Use this package directly when you need these easing functions outside a DOM animation context.
 
 ### `@motionone/utils`
 

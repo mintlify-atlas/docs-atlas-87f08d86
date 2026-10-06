@@ -13,9 +13,12 @@ description: "Run callbacks when elements enter or leave the viewport using Inte
 ```typescript
 function inView(
   elementOrSelector: ElementOrSelector,
-  onStart: (entry: IntersectionObserverEntry) => void | VoidFunction,
+  onStart: (entry: IntersectionObserverEntry) => void | ViewChangeHandler,
   options?: InViewOptions
 ): VoidFunction
+
+// ViewChangeHandler is also a callback receiving the IntersectionObserverEntry
+type ViewChangeHandler = (entry: IntersectionObserverEntry) => void
 ```
 
 ## Parameters
@@ -32,11 +35,11 @@ function inView(
   ```
 </ParamField>
 
-<ParamField path="onStart" type="(entry: IntersectionObserverEntry) => void | VoidFunction" required>
+<ParamField path="onStart" type="(entry: IntersectionObserverEntry) => void | ViewChangeHandler" required>
   Called each time an observed element enters the viewport.
 
   - **Return `void` (or nothing):** The element is automatically unobserved after the first intersection — ideal for one-time entrance animations.
-  - **Return a `VoidFunction`:** That function becomes the "on leave" callback, called when the element exits the viewport. The element continues to be observed, enabling repeated enter/leave animations.
+  - **Return a `ViewChangeHandler`:** That function (`(entry: IntersectionObserverEntry) => void`) becomes the "on leave" callback, called when the element exits the viewport. The element continues to be observed, enabling repeated enter/leave animations.
 
   ```typescript
   // One-time animation

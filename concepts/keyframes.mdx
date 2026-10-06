@@ -1,5 +1,5 @@
 ---
-title: "Keyframes: Defining Animation Values"
+title: "Keyframes in Motion One: Values, Arrays, and Null Syntax"
 sidebarTitle: "Keyframes"
 description: "Learn how to define animation keyframes in Motion One using single values, value arrays, null for current value, CSS variables, and keyframe offsets."
 ---
@@ -105,20 +105,26 @@ animate("#box", {
 
 Motion One provides shorthand names for individual transform axes that map to CSS custom property–based individual transforms under the hood (see [CSS Transforms](/concepts/transforms) for full details):
 
-| Shorthand | CSS equivalent      |
-|-----------|---------------------|
-| `x`       | `translateX`        |
-| `y`       | `translateY`        |
-| `z`       | `translateZ`        |
-| `rotate`  | `rotate`            |
-| `rotateX` | `rotateX`           |
-| `rotateY` | `rotateY`           |
-| `rotateZ` | `rotateZ`           |
-| `scale`   | `scale`             |
-| `scaleX`  | `scaleX`            |
-| `scaleY`  | `scaleY`            |
-| `skewX`   | `skewX`             |
-| `skewY`   | `skewY`             |
+| Shorthand    | CSS equivalent  |
+|--------------|-----------------|
+| `x`          | `translateX`    |
+| `y`          | `translateY`    |
+| `z`          | `translateZ`    |
+| `translate`  | `translate`     |
+| `translateX` | `translateX`    |
+| `translateY` | `translateY`    |
+| `translateZ` | `translateZ`    |
+| `scale`      | `scale`         |
+| `scaleX`     | `scaleX`        |
+| `scaleY`     | `scaleY`        |
+| `scaleZ`     | `scaleZ`        |
+| `rotate`     | `rotate`        |
+| `rotateX`    | `rotateX`       |
+| `rotateY`    | `rotateY`       |
+| `rotateZ`    | `rotateZ`       |
+| `skew`       | `skew`          |
+| `skewX`      | `skewX`         |
+| `skewY`      | `skewY`         |
 
 ```javascript
 import { animate } from "motion"

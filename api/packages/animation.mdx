@@ -1,7 +1,7 @@
 ---
-title: "@motionone/animation: WAAPI Polyfill Package"
-sidebarTitle: "@motionone/animation"
-description: "The @motionone/animation package provides the Animation class — a requestAnimationFrame-based polyfill for the Web Animations API — plus core easing resolution utilities."
+title: "@motionone/animation — Animation Class and Easings"
+sidebarTitle: "animation"
+description: "The @motionone/animation package exports Animation, a rAF-driven WAAPI polyfill, and getEasingFunction to resolve easing definitions to callable functions."
 ---
 
 `@motionone/animation` (version **10.18.0**) is the low-level animation engine at the heart of Motion One. It provides the `Animation` class — a lightweight, `requestAnimationFrame`-driven implementation of the [Web Animations API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Animations_API) (WAAPI) — along with the `getEasingFunction` utility used throughout the library to resolve easing definitions into callable functions. Most projects should use the higher-level [`motion`](/api/packages/motion) or `@motionone/dom` packages instead; reach for `@motionone/animation` directly when building a custom animation pipeline that needs direct control over individual animated values.

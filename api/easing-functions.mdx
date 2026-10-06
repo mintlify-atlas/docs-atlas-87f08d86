@@ -1,5 +1,5 @@
 ---
-title: "Easing Functions: Bezier, Steps, and Keywords"
+title: "Easing Functions: Bezier, Steps, Keywords, and Generators"
 sidebarTitle: "Easing Functions"
 description: "Every easing type accepted by Motion One: CSS keyword strings, cubic bezier arrays, step functions, custom easing functions, and physics EasingGenerators."
 ---
@@ -8,7 +8,7 @@ Motion One accepts a rich variety of easing types wherever an `easing` option ap
 
 ```typescript
 import { animate } from "motion"
-import { cubicBezier, steps } from "motion"
+import { cubicBezier, steps } from "@motionone/easing"
 import { spring, glide } from "motion"
 ```
 
@@ -57,10 +57,10 @@ type BezierDefinition = readonly [number, number, number, number]
 
 `cubicBezier(x1, y1, x2, y2)` creates a reusable `EasingFunction` from four control-point values. Equivalent to passing a `BezierDefinition` array, but returns a callable function you can store and reuse.
 
-Exported from the `motion` package (via `@motionone/easing`):
+Exported from `@motionone/easing`:
 
 ```typescript
-import { cubicBezier } from "motion"
+import { cubicBezier } from "@motionone/easing"
 ```
 
 ### Parameters
@@ -86,7 +86,8 @@ import { cubicBezier } from "motion"
 ### Example
 
 ```typescript
-import { animate, cubicBezier } from "motion"
+import { animate } from "motion"
+import { cubicBezier } from "@motionone/easing"
 
 const easeOutExpo = cubicBezier(0.16, 1, 0.3, 1)
 
@@ -101,10 +102,10 @@ If `x1 === y1` and `x2 === y2` the function short-circuits to a linear easing.
 
 `steps(count, direction)` creates a stepped easing function that divides the animation into a fixed number of equal-sized discrete jumps — like CSS's `steps()` timing function.
 
-Exported from the `motion` package (via `@motionone/easing`):
+Exported from `@motionone/easing`:
 
 ```typescript
-import { steps } from "motion"
+import { steps } from "@motionone/easing"
 ```
 
 ### Parameters
@@ -136,7 +137,8 @@ The `Easing` type includes the template literal `` `steps(${number}, ${"start" |
 ### Function form
 
 ```typescript
-import { animate, steps } from "motion"
+import { animate } from "motion"
+import { steps } from "@motionone/easing"
 
 // 6-frame sprite sheet animation
 animate(
@@ -228,7 +230,8 @@ animate(
 Each element in the array can be any valid easing — a keyword string, `BezierDefinition`, `EasingFunction`, or even an `EasingGenerator`:
 
 ```typescript
-import { animate, spring, cubicBezier } from "motion"
+import { animate, spring } from "motion"
+import { cubicBezier } from "@motionone/easing"
 
 animate(
   "#box",

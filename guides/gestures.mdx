@@ -1,7 +1,7 @@
 ---
-title: "Hover, Press, and In-View Gesture Animations"
+title: "Hover, Press, and In-View Gesture Animations in Motion One"
 sidebarTitle: "Gestures"
-description: "Respond to pointer and visibility events with Motion One's gesture system: hover, press, and inView states with full variant support and custom DOM events."
+description: "Respond to pointer and viewport events with hover, press, and inView gesture states, plus standalone inView() and resize() observer utilities."
 ---
 
 Motion One provides a rich gesture system that lets elements respond to user interaction and viewport visibility without writing a single event listener by hand. Gestures are first-class options on `createMotionState()`, and the standalone `inView()` and `resize()` utilities give you direct access to the underlying observers when you need more control.
@@ -178,12 +178,12 @@ stop()
 import { resize } from "motion"
 
 // Observe window resize
-const stop = resize((info) => {
+const stopWindow = resize((info) => {
   console.log(info.size.width, info.size.height)
 })
 
 // Observe a specific element
-const stop = resize(element, (info) => {
+const stopElement = resize(element, (info) => {
   console.log(info.target, info.size, info.contentSize)
 })
 ```

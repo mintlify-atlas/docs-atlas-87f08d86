@@ -1,7 +1,7 @@
 ---
-title: "Scroll-Linked and Scroll-Triggered Animations"
+title: "Scroll-Linked and Scroll-Triggered Animations in Motion One"
 sidebarTitle: "Scroll Animations"
-description: "Use the scroll() function to link animation progress to scroll position or trigger animations when elements enter the viewport with inView()."
+description: "Drive animation playback with scroll position using scroll(), or fire one-shot entrance animations when elements enter the viewport with inView()."
 ---
 
 Scroll animations come in two flavours: **scroll-linked**, where the playback progress of an animation is directly tied to how far the user has scrolled, and **scroll-triggered**, where a one-shot animation fires when an element crosses a scroll threshold. Motion One ships the `scroll()` and `inView()` functions to cover both patterns without any external dependencies.
@@ -52,7 +52,10 @@ Each axis exposes:
 | `progress` | `number` | Normalised scroll progress, `0` to `1`. |
 | `scrollLength` | `number` | Total scrollable length in px. |
 | `velocity` | `number` | Scroll velocity in px/s. |
-| `offset` | `number[]` | Resolved offset array. |
+| `offset` | `number[]` | Resolved offset array used to calculate `progress`. |
+| `targetOffset` | `number` | The resolved start offset of the target in the container. |
+| `targetLength` | `number` | The length of the target along the tracked axis in px. |
+| `containerLength` | `number` | The visible length of the container along the tracked axis in px. |
 
 ---
 

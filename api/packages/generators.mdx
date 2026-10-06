@@ -1,7 +1,7 @@
 ---
-title: "@motionone/generators: Spring and Glide Physics"
-sidebarTitle: "@motionone/generators"
-description: "The @motionone/generators package provides spring and glide physics engines as pure AnimationGenerator functions, plus utilities for pre-computing keyframes and measuring velocity."
+title: "@motionone/generators — Spring and Glide Generators"
+sidebarTitle: "generators"
+description: "The @motionone/generators package exports spring and glide physics engines, pregenerateKeyframes, and calcGeneratorVelocity for custom animation pipelines."
 ---
 
 `@motionone/generators` (version **10.18.0**) is the physics engine layer of Motion One. It exposes two animation generators — `spring` (a damped harmonic oscillator) and `glide` (momentum-based deceleration with optional boundary bounce) — as pure functions that return an `AnimationGenerator`: a stateless function `(t: number) => AnimationGeneratorState` that can be sampled at any millisecond timestamp. The package also ships `pregenerateKeyframes` for pre-computing physics animations into discrete keyframe arrays, and `calcGeneratorVelocity` for measuring instantaneous velocity. Most projects access these generators through the [`motion`](/api/packages/motion) or `@motionone/dom` packages. Use `@motionone/generators` directly when building a custom rendering pipeline or targeting a non-DOM environment.
@@ -148,6 +148,11 @@ function glide(options: GlideOptions): AnimationGenerator
 
 <ParamField path="from" type="number" default="0">
   Starting value.
+</ParamField>
+
+<ParamField path="to" type="number">
+  Optional explicit target value. When omitted the target is derived from
+  `from + power * velocity`.
 </ParamField>
 
 <ParamField path="velocity" type="number" default="0">

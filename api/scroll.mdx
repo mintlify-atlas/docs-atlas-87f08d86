@@ -1,5 +1,5 @@
 ---
-title: "scroll() — Scroll-Linked Animations and Progress"
+title: "scroll() — Scroll-Linked Animations and Scroll Progress"
 sidebarTitle: "scroll()"
 description: "Link animations or callbacks to scroll position for progress bars, parallax effects, and element-based scroll tracking with automatic cleanup."
 ---
@@ -93,14 +93,16 @@ interface ScrollInfo {
 }
 
 interface AxisScrollInfo {
-  current: number       // current scroll position in px
-  offset: number[]      // resolved offset positions in px
-  progress: number      // 0–1 progress between offsets
-  scrollLength: number  // total scrollable distance in px
-  velocity: number      // scroll velocity in px/s
+  current: number              // current scroll position in px
+  offset: number[]             // resolved offset positions in px
+  progress: number             // 0–1 progress between offsets
+  scrollLength: number         // total scrollable distance in px
+  velocity: number             // scroll velocity in px/s
   targetOffset: number
   targetLength: number
   containerLength: number
+  interpolatorOffsets?: number[]
+  interpolate?: EasingFunction
 }
 ```
 
@@ -122,6 +124,11 @@ interface AxisScrollInfo {
   <ResponseField name="scrollLength" type="number">Total scrollable distance in pixels.</ResponseField>
   <ResponseField name="velocity" type="number">Current scroll velocity in pixels per second.</ResponseField>
   <ResponseField name="offset" type="number[]">Resolved start/end positions in pixels derived from the `offset` option.</ResponseField>
+  <ResponseField name="targetOffset" type="number">The scroll offset of the target element's leading edge within the container.</ResponseField>
+  <ResponseField name="targetLength" type="number">The length of the target element along the tracked axis, in pixels.</ResponseField>
+  <ResponseField name="containerLength" type="number">The visible length of the scroll container along the tracked axis, in pixels.</ResponseField>
+  <ResponseField name="interpolatorOffsets" type="number[] | undefined">Internal resolved offset positions used for custom progress interpolation, if set.</ResponseField>
+  <ResponseField name="interpolate" type="EasingFunction | undefined">An optional easing function applied during progress interpolation.</ResponseField>
 </ResponseField>
 
 ---
